@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Enviar URLs
-        uses: jakob-bagterp/index-now-submit-sitemap-action
+        uses: jakob-bagterp/index-now-submit-sitemap-urls-action@v1
         with:
           host: https://jorgeandresamaya.github.io
           api_key: ${{ secrets.INDEXNOW_API_KEY }}
