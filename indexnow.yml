@@ -1,0 +1,14 @@
+name: Enviar URLs a IndexNow
+on:
+  workflow_dispatch:
+jobs:
+  indexnow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar URLs
+        uses: jakob-bagterp/index-now-submit-sitemap-action@v1
+        with:
+          host: https://jorgeandresamaya.github.io
+          api_key: ${{ secrets.eba146e4021f4e54943ddb1bd0b7471e }}
+          api_key_location: https://jorgeandresamaya.github.io/://jorgeandresamaya.github.io/eba146e4021f4e54943ddb1bd0b7471e.txt
+          sitemap_locations: https://jorgeandresamaya.blogspot.com/sitemap.xml
