@@ -1,11 +1,14 @@
-name: Prueba IndexNow
-
+name: Enviar URLs a IndexNow
 on:
   workflow_dispatch:
-
 jobs:
-  test:
+  indexnow:
     runs-on: ubuntu-latest
     steps:
-      - name: Echo de prueba
-        run: echo "¡Flujo activo!"
+      - name: Enviar URLs
+        uses: bojieyang/indexnow-action@v2
+        with:
+          host: https://jorgeandresamaya.github.io
+          api_key: ${{ secrets.INDEXNOW_API_KEY }}
+          api_key_location: https://jorgeandresamaya.github.io/eba146e4021f4e54943ddb1bd0b7471e.txt
+          sitemap_locations: https://jorgeandresamaya.blogspot.com/sitemap.xml
