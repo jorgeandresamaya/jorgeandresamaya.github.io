@@ -1,6 +1,8 @@
 name: Enviar URLs a IndexNow
 
 on:
+  schedule:
+    - cron: '0 9 * * *'  # Todos los días a las 4:00 a.m. hora Perú
   workflow_dispatch:
 
 jobs:
