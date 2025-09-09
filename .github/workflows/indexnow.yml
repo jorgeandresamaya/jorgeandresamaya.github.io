@@ -1,14 +1,15 @@
 name: Enviar URLs a IndexNow
+
 on:
   workflow_dispatch:
+
 jobs:
   indexnow:
     runs-on: ubuntu-latest
     steps:
-      - name: Enviar URLs
+      - name: Enviar sitemap a IndexNow
         uses: bojieyang/indexnow-action@v2
         with:
-          host: https://jorgeandresamaya.github.io
-          api_key: ${{ secrets.INDEXNOW_API_KEY }}
-          api_key_location: https://jorgeandresamaya.github.io/eba146e4021f4e54943ddb1bd0b7471e.txt
-          sitemap_locations: https://jorgeandresamaya.blogspot.com/sitemap.xml
+          sitemap-location: https://jorgeandresamaya.blogspot.com/sitemap.xml
+          key: ${{ secrets.INDEXNOW_KEY }}
+          key-location: https://jorgeandresamaya.github.io/eba146e4021f4e54943ddb1bd0b7471e.txt
