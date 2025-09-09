@@ -1,14 +1,11 @@
-name: Enviar URLs a IndexNow
+name: Prueba IndexNow
+
 on:
   workflow_dispatch:
+
 jobs:
-  indexnow:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Enviar URLs
-        uses: jakob-bagterp/index-now-submit-sitemap-urls-action@v1
-        with:
-          host: https://jorgeandresamaya.github.io
-          api_key: ${{ secrets.INDEXNOW_API_KEY }}
-          api_key_location: https://jorgeandresamaya.github.io/eba146e4021f4e54943ddb1bd0b7471e.txt
-          sitemap_locations: https://jorgeandresamaya.blogspot.com/sitemap.xml
+      - name: Echo de prueba
+        run: echo "¡Flujo activo!"
