@@ -9,58 +9,26 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/** Paginación numérica real - Descubre con Jorge Andrés Amaya - MIT **/
+/** Paginación simple para Blogger - Jorge Andrés Amaya 2025 **/
 (function() {
-  const itemsPerPage = window.itemsPerPage || 10;
-  const pagesToShow = window.pagesToShow || 5;
-  const homePage = window.home_page || "/";
-  const container = document.getElementById("numeracion-paginacion");
+  var container = document.getElementById('numeracion-paginacion');
   if (!container) return;
 
-  function getTotalPosts(callback) {
-    fetch(homePage + "feeds/posts/summary?alt=json&max-results=0")
-      .then(res => res.json())
-      .then(data => {
-        const total = parseInt(data.feed.openSearch$totalResults.$t, 10);
-        callback(total);
-      })
-      .catch(() => callback(0));
-  }
+  var postsPerPage = 10; // Ajusta según tu blog
+  var params = new URLSearchParams(window.location.search);
+  var start = parseInt(params.get('start')) || 0;
+  var currentPage = Math.floor(start / postsPerPage) + 1;
 
-  function getCurrentPage() {
-    const url = location.href;
-    const match = url.match(/start-index=(\d+)/);
-    const index = match ? parseInt(match[1], 10) : 1;
-    return Math.ceil(index / itemsPerPage);
-  }
+  if (currentPage <= 1) return; // Solo mostrar a partir de la segunda página
 
-  function buildPagination(totalPosts) {
-    const totalPages = Math.ceil(totalPosts / itemsPerPage);
-    const currentPage = getCurrentPage();
-    if (totalPages <= 1 || currentPage < 2) return;
+  // Crear el indicador de página
+  var span = document.createElement('span');
+  span.textContent = 'Página ' + currentPage;
+  span.style.fontWeight = 'bold';
+  span.style.margin = '0 5px';
 
-    const half = Math.floor(pagesToShow / 2);
-    let start = Math.max(currentPage - half, 2);
-    let end = Math.min(start + pagesToShow - 1, totalPages);
-
-    if (end - start < pagesToShow - 1) {
-      start = Math.max(end - pagesToShow + 1, 2);
-    }
-
-    const fragment = document.createDocumentFragment();
-    for (let i = start; i <= end; i++) {
-      const index = (i - 1) * itemsPerPage + 1;
-      const link = document.createElement("a");
-      link.href = homePage + "search?updated-max&start-index=" + index + "&max-results=" + itemsPerPage;
-      link.textContent = i;
-      if (i === currentPage) link.style.fontWeight = "bold";
-      fragment.appendChild(link);
-    }
-
-    container.innerHTML = "";
-    container.style.textAlign = "center";
-    container.appendChild(fragment);
-  }
+  container.appendChild(span);
+})();
 
   getTotalPosts(buildPagination);
 })();
