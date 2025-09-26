@@ -9,91 +9,60 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-// ==============================
-// Paginación numérica centrada
-// Compatible con tu plantilla
-// ==============================
+(function () {
+  const itemsPerPage = typeof window.itemsPerPage !== "undefined" ? window.itemsPerPage : 10;
+  const pagesToShow = 5;
+  const containerId = "numeracion-paginacion";
+  const currentPage = location.href.includes("#PageNo=")
+    ? parseInt(location.href.split("#PageNo=")[1], 10)
+    : 1;
 
-var itemsPerPage = 10;   // Posts por página
-var pagesToShow = 5;     // Máximo números visibles
-var currentPage = 1;
-var totalPosts = 0;
-var home_page = "/";
+  if (currentPage === 1) return;
 
-// Obtener número de página actual desde URL
-function getCurrentPage() {
-    var page = 1;
-    if (location.href.includes("#PageNo=")) {
-        page = parseInt(location.href.split("#PageNo=")[1], 10);
-    }
-    return page;
-}
+  const feedUrl = `${location.origin}/feeds/posts/summary?alt=json-in-script&max-results=1&callback=renderPagination`;
 
-// Crear enlace de página
-function createPageLink(pageNum, text) {
-    return "<span class='pagenumber'><a href='" + home_page + "?start=" + ((pageNum-1)*itemsPerPage) + "#PageNo=" + pageNum + "'>" + text + "</a></span>";
-}
+  const script = document.createElement("script");
+  script.src = feedUrl;
+  document.body.appendChild(script);
 
-// Generar numeración
-function renderPagination(totalPostsCount) {
-    totalPosts = totalPostsCount;
-    var totalPages = Math.ceil(totalPosts / itemsPerPage);
-    currentPage = getCurrentPage();
+  window.renderPagination = function (data) {
+    const totalPosts = parseInt(data.feed.openSearch$totalResults.$t, 10);
+    const totalPages = Math.ceil(totalPosts / itemsPerPage);
+    if (totalPages <= 1) return;
 
-    if (totalPages <= 1 || currentPage < 2) return; // Solo mostrar a partir de página 2
+    let html = "";
+    let left = Math.floor(pagesToShow / 2);
+    let start = Math.max(currentPage - left, 2);
+    let end = Math.min(start + pagesToShow - 1, totalPages);
 
-    var paginationHTML = "";
-    var leftNum = Math.floor(pagesToShow / 2);
-    var start = Math.max(currentPage - leftNum, 1);
-    var end = Math.min(start + pagesToShow - 1, totalPages);
-
-    // Ajustar si quedan menos de pagesToShow
-    if (end - start + 1 < pagesToShow) start = Math.max(end - pagesToShow + 1, 1);
-
-    // Primer número y puntos
-    if (start > 1) {
-        paginationHTML += createPageLink(1, "1");
-        if (start > 2) paginationHTML += "<span class='dots'>...</span>";
+    if (start > 2) {
+      html += pageLink(1);
+      if (start > 3) html += ellipsis();
     }
 
-    // Números intermedios
-    for (var i = start; i <= end; i++) {
-        if (i === currentPage) {
-            paginationHTML += "<span class='pagenumber current'>" + i + "</span>";
-        } else {
-            paginationHTML += createPageLink(i, i);
-        }
+    for (let i = start; i <= end; i++) {
+      html += i === currentPage ? current(i) : pageLink(i);
     }
 
-    // Último número y puntos
-    if (end < totalPages) {
-        if (end < totalPages - 1) paginationHTML += "<span class='dots'>...</span>";
-        paginationHTML += createPageLink(totalPages, totalPages);
-    }
+    if (end < totalPages - 1) html += ellipsis();
+    if (end < totalPages) html += pageLink(totalPages);
 
-    // Insertar en contenedor centrado
-    var container = document.getElementById("numeracion-paginacion");
+    const container = document.getElementById(containerId);
     if (container) {
-        container.innerHTML = "<div style='display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:5px;'>" + paginationHTML + "</div>";
+      container.innerHTML = `<div style="text-align:center;">${html}</div>`;
     }
-}
+  };
 
-// ==============================
-// Detectar número total de posts mediante feed JSON
-// ==============================
-function loadTotalPosts() {
-    var script = document.createElement("script");
-    script.src = home_page + "feeds/posts/summary?max-results=1&alt=json-in-script&callback=processTotalPosts";
-    document.body.appendChild(script);
-}
+  function pageLink(page) {
+    const url = `${location.origin}/search?updated-max=${new Date().toISOString()}&max-results=${itemsPerPage}#PageNo=${page}`;
+    return `<span class="pagenumber"><a href="${url}">${page}</a></span>`;
+  }
 
-// Callback para procesar feed
-function processTotalPosts(data) {
-    var total = parseInt(data.feed.openSearch$totalResults.$t, 10);
-    if (!isNaN(total)) renderPagination(total);
-}
+  function current(page) {
+    return `<span class="pagenumber current">${page}</span>`;
+  }
 
-// Ejecutar al cargar DOM
-document.addEventListener("DOMContentLoaded", function() {
-    loadTotalPosts();
-});
+  function ellipsis() {
+    return `<span class="pagenumber">...</span>`;
+  }
+})();
