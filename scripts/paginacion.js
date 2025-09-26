@@ -9,7 +9,7 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/* paginacion.js — ajustado: números entre flechas, ocultos en home */
+/* paginacion.js — ajustado: centrado entre flechas, oculto en home */
 (function(){
   "use strict";
 
@@ -57,7 +57,7 @@
       this.homeUrl = window.location.origin;
       this.curUrl = new URL(window.location.href);
       this.isHome = this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html";
-      if(this.isHome) return; // no mostrar en home
+      if(this.isHome) return;
       this.label = null;
       if(this.curUrl.pathname.includes("/search/label/")){
         const bits = this.curUrl.pathname.split("/"); this.label = bits[bits.length-1] || null;
@@ -94,26 +94,30 @@
       const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
 
       const currentPage = this._computeCurrentPage(postDates, totalPages);
-
       const pagesToShow = this._computePagesToShow(totalPages, currentPage);
-
       this._render(pagesToShow, postDates, totalPages, currentPage);
     }
 
     _ensureNodes(){
       if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
       if(!this.pagerNode) return false;
+
       if(!this.numbersNode){
-        const div = document.createElement("div");
-        div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-        div.style.display = "inline-block";
-        div.style.verticalAlign = "middle";
-        div.style.margin = "0 6px";
+        const wrapper = document.createElement("div");
+        wrapper.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+        // **Flex para centrar los números entre las flechas**
+        wrapper.style.display = "flex";
+        wrapper.style.justifyContent = "center";
+        wrapper.style.alignItems = "center";
+        wrapper.style.margin = "6px 0";
         const older = this.pagerNode.querySelector(".blog-pager-older-link");
-        this.pagerNode.insertBefore(div, older || null);
-        this.numbersNode = div;
+        this.pagerNode.insertBefore(wrapper, older || null);
+        this.numbersNode = wrapper;
       }
-      this.pagerNode.style.textAlign="center";
+      this.pagerNode.style.display="flex";
+      this.pagerNode.style.justifyContent="center";
+      this.pagerNode.style.alignItems="center";
+      this.pagerNode.style.gap="6px";
       return !!this.numbersNode;
     }
 
@@ -173,10 +177,9 @@
     _render(pagesArr, postDates, totalPages, currentPage){
       if(!this.numbersNode) return;
       this.numbersNode.innerHTML="";
-      this.numbersNode.style.display="inline-block";
-      this.numbersNode.style.verticalAlign="middle";
 
       const frag=document.createDocumentFragment();
+
       const makeAnchor=(page,text,isActive)=>{
         const a=document.createElement("a");
         a.className=this.config.numberClass + (isActive?" "+this.config.activeClass:"");
@@ -187,9 +190,7 @@
           const startIndex=(page-1)*this.maxResults;
           a.href=buildPageLink({homeUrl:this.homeUrl,label:this.label,query:this.query,updated:updated,maxResults:this.maxResults,startIndex:startIndex});
         }
-        a.style.display="inline-block";
-        a.style.verticalAlign="middle";
-        a.style.margin="0 6px";
+        a.style.margin="0 4px";
         return a;
       };
 
@@ -197,10 +198,7 @@
         const s=document.createElement("span");
         s.className=this.config.dotsClass;
         s.textContent="…";
-        s.style.display="inline-block";
-        s.style.verticalAlign="middle";
-        s.style.margin="0 6px";
-        s.style.pointerEvents="none";
+        s.style.margin="0 4px";
         return s;
       };
 
