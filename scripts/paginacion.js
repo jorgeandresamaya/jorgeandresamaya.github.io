@@ -10,7 +10,7 @@
 
 // Variables internas del script (no modificar)
 var currentPage, searchQuery, lastPostDate = null, type, lblname1, nopage;
-var isPaginationRendered = false; // Flag para evitar renderizados múltiples
+var isPaginationRendered = false;
 
 // =============================================================================
 // FUNCIONES AUXILIARES
@@ -22,15 +22,14 @@ function getSearchQuery() {
 }
 
 function createPageLink(pageNum, linkText) {
-    let url;
     if (type === "page") {
         return `<span class="pagenumber"><a href="#" onclick="redirectpage(${pageNum}); return false;">${linkText}</a></span>`;
     } else if (type === "label") {
         return `<span class="pagenumber"><a href="#" onclick="redirectlabel(${pageNum}); return false;">${linkText}</a></span>`;
-    } else { // type === "search"
+    } else {
         let searchParam = searchQuery ? `q=${encodeURIComponent(searchQuery)}` : "";
         let startIndex = (pageNum - 1) * itemsPerPage;
-        url = `${home_page}search?${searchParam}&updated-max=${encodeURIComponent(lastPostDate || new Date().toISOString())}&max-results=${itemsPerPage}&start=${startIndex}&by-date=false#PageNo=${pageNum}`;
+        let url = `${home_page}search?${searchParam}&updated-max=${encodeURIComponent(lastPostDate || new Date().toISOString())}&max-results=${itemsPerPage}&start=${startIndex}&by-date=false#PageNo=${pageNum}`;
         return `<span class="pagenumber"><a href="${url}">${linkText}</a></span>`;
     }
 }
@@ -44,42 +43,51 @@ function renderPagination(totalPosts) {
 
     let paginationHTML = "";
     let maximum = Math.ceil(totalPosts / itemsPerPage);
-    let pagesToShow = 5; // Limitar a 5 números de página visibles
-    let leftnum = Math.floor(pagesToShow / 2);
+    let pagesToShow = 5; // Máximo números visibles
+    let half = Math.floor(pagesToShow / 2);
 
-    // Mostrar numeración solo si no estamos en la home y hay más de 1 página
-    if (!(type === "page" && currentPage === 1) && maximum > 1) {
+    // Solo mostrar paginación si hay más de 1 página y no estamos en home con currentPage=1
+    if (maximum > 1 && !(type === "page" && currentPage === 1)) {
 
-        // Texto "Hoja X de Y" solo si no es home ni primera página
+        // Mostrar "Hoja X de Y" solo si no estamos en home
         if (!(type === "page" && currentPage === 1)) {
             paginationHTML += `<span class='totalpages'>Hoja ${currentPage} de ${maximum}</span>`;
         }
 
         // Botón "Anterior"
-        if (currentPage > 1) {
-            paginationHTML += createPageLink(currentPage - 1, prevpage);
+        if (currentPage > 1) paginationHTML += createPageLink(currentPage - 1, prevpage);
+
+        // Determinar rango de números
+        let start = Math.max(currentPage - half, 1);
+        let end = Math.min(currentPage + half, maximum);
+
+        // Ajuste si hay menos de pagesToShow números
+        if (end - start + 1 < pagesToShow) {
+            if (start === 1) end = Math.min(start + pagesToShow - 1, maximum);
+            else if (end === maximum) start = Math.max(end - pagesToShow + 1, 1);
+        }
+
+        // Primera página y "..." si hace falta
+        if (start > 1) {
+            paginationHTML += createPageLink(1, "1");
+            if (start > 2) paginationHTML += "...";
         }
 
         // Números de página
-        let start = Math.max(currentPage - leftnum, 1);
-        let end = Math.min(start + pagesToShow - 1, maximum);
-
-        if (start > 1) paginationHTML += createPageLink(1, "1");
-        if (start > 2) paginationHTML += "...";
-
-        for (let r = start; r <= end; r++) {
-            paginationHTML += r === currentPage 
-                ? `<span class="pagenumber current">${r}</span>` 
-                : createPageLink(r, r);
+        for (let i = start; i <= end; i++) {
+            paginationHTML += i === currentPage
+                ? `<span class="pagenumber current">${i}</span>`
+                : createPageLink(i, i);
         }
 
-        if (end < maximum - 1) paginationHTML += "...";
-        if (end < maximum) paginationHTML += createPageLink(maximum, maximum);
+        // Última página y "..." si hace falta
+        if (end < maximum) {
+            if (end < maximum - 1) paginationHTML += "...";
+            paginationHTML += createPageLink(maximum, maximum);
+        }
 
         // Botón "Siguiente"
-        if (currentPage < maximum) {
-            paginationHTML += createPageLink(currentPage + 1, nextpage);
-        }
+        if (currentPage < maximum) paginationHTML += createPageLink(currentPage + 1, nextpage);
     }
 
     let pagerElement = document.getElementById("blog-pager");
@@ -88,19 +96,14 @@ function renderPagination(totalPosts) {
         let nextButton = pagerElement.querySelector(".blog-pager-newer-link");
 
         if (paginationHTML) {
-            let paginationWrapper = document.createElement("div");
-            paginationWrapper.className = "pagination-numbers-wrapper";
-            paginationWrapper.innerHTML = paginationHTML;
+            let wrapper = document.createElement("div");
+            wrapper.className = "pagination-numbers-wrapper";
+            wrapper.innerHTML = paginationHTML;
 
-            if (prevButton && nextButton) {
-                pagerElement.insertBefore(paginationWrapper, nextButton);
-            } else if (nextButton) {
-                pagerElement.insertBefore(paginationWrapper, nextButton);
-            } else if (prevButton) {
-                pagerElement.appendChild(paginationWrapper);
-            } else {
-                pagerElement.innerHTML = paginationHTML;
-            }
+            if (prevButton && nextButton) pagerElement.insertBefore(wrapper, nextButton);
+            else if (nextButton) pagerElement.insertBefore(wrapper, nextButton);
+            else if (prevButton) pagerElement.appendChild(wrapper);
+            else pagerElement.innerHTML = paginationHTML;
         } else {
             let existingWrapper = pagerElement.querySelector(".pagination-numbers-wrapper");
             if (existingWrapper) existingWrapper.remove();
@@ -113,11 +116,9 @@ function paginationall(data) {
     let totalResults = parseInt(data.feed.openSearch$totalResults.$t, 10);
     if (isNaN(totalResults) || totalResults <= 0) totalResults = itemsPerPage;
 
-    if (data.feed.entry && data.feed.entry.length > 0) {
-        lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
-    } else if (!lastPostDate) {
-        lastPostDate = new Date().toISOString();
-    }
+    if (data.feed.entry && data.feed.entry.length > 0) lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
+    else if (!lastPostDate) lastPostDate = new Date().toISOString();
+
     renderPagination(totalResults);
 }
 
@@ -126,10 +127,7 @@ function paginationall(data) {
 // =============================================================================
 
 function redirectpage(pageNum) {
-    if (pageNum === 1) {
-        location.href = home_page;
-        return;
-    }
+    if (pageNum === 1) { location.href = home_page; return; }
     jsonstart = (pageNum - 1) * itemsPerPage;
     nopage = pageNum;
     let script = document.createElement("script");
@@ -139,10 +137,7 @@ function redirectpage(pageNum) {
 }
 
 function redirectlabel(pageNum) {
-    if (pageNum === 1) {
-        location.href = `${home_page}search/label/${lblname1}?max-results=${itemsPerPage}#PageNo=1`;
-        return;
-    }
+    if (pageNum === 1) { location.href = `${home_page}search/label/${lblname1}?max-results=${itemsPerPage}#PageNo=1`; return; }
     jsonstart = (pageNum - 1) * itemsPerPage;
     nopage = pageNum;
     let script = document.createElement("script");
@@ -174,15 +169,10 @@ function initializeBloggerPagination() {
     if (activePage.includes("/search/label/")) {
         type = "label";
         lblname1 = activePage.split("/search/label/")[1].split("?")[0];
-    } else if (searchQuery) {
-        type = "search";
-    } else {
-        type = "page";
-    }
+    } else if (searchQuery) type = "search";
+    else type = "page";
 
-    currentPage = activePage.includes("#PageNo=") 
-        ? parseInt(activePage.split("#PageNo=")[1], 10) 
-        : 1;
+    currentPage = activePage.includes("#PageNo=") ? parseInt(activePage.split("#PageNo=")[1], 10) : 1;
 
     const maxResultsForTotal = 200; 
     let scriptUrl;
@@ -201,7 +191,6 @@ function initializeBloggerPagination() {
     script.onerror = () => console.error("Error al cargar el feed:", scriptUrl);
     document.body.appendChild(script);
 
-    // Ajustar enlaces de etiquetas
     let labelLinks = document.querySelectorAll('a[href*="/search/label/"]');
     labelLinks.forEach(function (link) {
         if (!link.href.includes("?&max-results=") && !link.href.includes("&max-results=")) {
@@ -210,19 +199,15 @@ function initializeBloggerPagination() {
     });
 }
 
-// Debounce para asegurar ejecución única
 let debounceTimeout;
 const debounceInitialize = () => {
     clearTimeout(debounceTimeout);
-    debounceTimeout = setTimeout(() => {
-        initializeBloggerPagination();
-    }, 500);
+    debounceTimeout = setTimeout(() => { initializeBloggerPagination(); }, 500);
 };
 
 document.addEventListener("DOMContentLoaded", debounceInitialize);
 window.addEventListener("load", debounceInitialize);
 
-// Función para el formulario de búsqueda
 function addMaxResults(event) {
   event.preventDefault(); 
   var query = document.querySelector('input[name="q"]').value;
