@@ -9,64 +9,64 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/** Paginación numérica automática - Descubre con Jorge Andrés Amaya - MIT License **/
+/** Paginación Descubre con Jorge Andrés Amaya - 2025 (Licencia MIT) **/
 (function() {
-  const itemsPerPage = window.itemsPerPage || 10;
-  const pagesToShow = window.pagesToShow || 5;
-  const urlactivepage = window.urlactivepage || location.href;
-  const home_page = window.home_page || "/";
-  const numeracionContainer = document.getElementById("numeracion-paginacion");
+  var container = document.getElementById('numeracion-paginacion');
+  if (!container) return;
 
-  if (!numeracionContainer) return;
+  var pagerOlder = document.querySelector('.blog-pager-older-link');
+  var pagerNewer = document.querySelector('.blog-pager-newer-link');
 
-  function getTotalPosts(callback) {
-    const feedUrl = home_page + "feeds/posts/summary?alt=json&max-results=0";
-    fetch(feedUrl)
-      .then(res => res.json())
-      .then(data => {
-        const totalPosts = parseInt(data.feed.openSearch$totalResults.$t, 10);
-        callback(totalPosts);
-      })
-      .catch(() => callback(0));
+  // Detecta número de páginas mediante los enlaces existentes
+  function getTotalPages() {
+    var links = document.querySelectorAll('.blog-pager a');
+    var nums = [];
+    links.forEach(function(a) {
+      var match = a.href.match(/\/search\/label\/.*\?updated-max=.*&max-results=(\d+)/);
+      if (match) nums.push(parseInt(match[1]));
+    });
+    return Math.max.apply(null, nums) || 1;
   }
 
   function getCurrentPage() {
-    const match = urlactivepage.match(/\/search\/label\/.*?[?&]start-index=(\d+)/) ||
-                  urlactivepage.match(/[?&]start-index=(\d+)/);
-    const startIndex = match ? parseInt(match[1], 10) : 1;
-    return Math.ceil(startIndex / itemsPerPage);
+    var params = new URLSearchParams(window.location.search);
+    var start = parseInt(params.get('start')) || 0;
+    return Math.floor(start / 10) + 1; // 10 posts por página
   }
 
-  function buildPagination(totalPosts) {
-    const totalPages = Math.ceil(totalPosts / itemsPerPage);
-    const currentPage = getCurrentPage();
-    if (totalPages <= 1 || currentPage < 2) return;
+  function createLink(pageNum, isActive) {
+    var a = document.createElement('a');
+    if (!isActive) {
+      var start = (pageNum - 1) * 10;
+      a.href = start === 0 ? '/' : '?start=' + start;
+    } else {
+      a.style.fontWeight = 'bold';
+      a.style.pointerEvents = 'none';
+    }
+    a.textContent = pageNum;
+    return a;
+  }
 
-    const half = Math.floor(pagesToShow / 2);
-    let startPage = Math.max(currentPage - half, 2);
-    let endPage = Math.min(startPage + pagesToShow - 1, totalPages);
+  function renderPagination() {
+    var current = getCurrentPage();
+    var total = getTotalPages();
+
+    if (total <= 1 || current === 1) return; // Solo a partir de la segunda página
+
+    container.innerHTML = '';
+
+    var pagesToShow = 5;
+    var startPage = Math.max(current - 2, 1);
+    var endPage = Math.min(startPage + pagesToShow - 1, total);
 
     if (endPage - startPage < pagesToShow - 1) {
-      startPage = Math.max(endPage - pagesToShow + 1, 2);
+      startPage = Math.max(endPage - pagesToShow + 1, 1);
     }
 
-    const fragment = document.createDocumentFragment();
-
-    for (let i = startPage; i <= endPage; i++) {
-      const pageIndex = (i - 1) * itemsPerPage + 1;
-      const pageUrl = home_page + "search?updated-max&start-index=" + pageIndex + "&max-results=" + itemsPerPage;
-      const link = document.createElement("a");
-      link.href = pageUrl;
-      link.textContent = i;
-      if (i === currentPage) link.style.fontWeight = "bold";
-      fragment.appendChild(link);
+    for (var i = startPage; i <= endPage; i++) {
+      container.appendChild(createLink(i, i === current));
     }
-
-    numeracionContainer.innerHTML = "";
-    numeracionContainer.style.margin = "10px 0";
-    numeracionContainer.style.textAlign = "center";
-    numeracionContainer.appendChild(fragment);
   }
 
-  getTotalPosts(buildPagination);
+  document.addEventListener('DOMContentLoaded', renderPagination);
 })();
