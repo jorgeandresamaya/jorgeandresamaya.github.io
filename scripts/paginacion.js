@@ -11,14 +11,11 @@
 // Parámetros globales (estas variables se definirán en la plantilla)
 (function() {
   const config = {
-    pagerSelector: '#blog-pager',
-    numberSelector: '#numeracion-paginacion', // Usamos el contenedor correcto
+    numberSelector: '#numeracion-paginacion',
     numberClass: 'pager-item',
     dotsClass: 'pager-dots',
     activeClass: 'is-active',
-    totalVisibleNumbers: 5, // Solo 5 números visibles
-    checkForUpdates: true,
-    enableDotsJump: true
+    totalVisibleNumbers: 5
   };
 
   function createLink(href, text, isActive = false, isDots = false) {
@@ -64,10 +61,20 @@
     }
   }
 
-  // Simulación: reemplazar esto por la lógica real de Blogger
-  const totalPages = 20; // número total de páginas
-  const currentPage = parseInt(new URLSearchParams(window.location.search).get('page')) || 1;
-  const baseUrl = window.location.pathname;
+  // ===============================
+  // 🔹 Aquí adaptamos Blogger
+  // ===============================
+  function initPagination() {
+    const postsPerPage = 7; // <-- cambia este número al "max-results" de tu feed
+    const totalPostsEl = document.querySelector('meta[name="totalPosts"]');
+    const totalPosts = totalPostsEl ? parseInt(totalPostsEl.content, 10) : 100; // valor por defecto
+    const totalPages = Math.ceil(totalPosts / postsPerPage);
 
-  renderPagination(totalPages, currentPage, baseUrl);
+    const currentPage = parseInt(new URLSearchParams(window.location.search).get('page')) || 1;
+    const baseUrl = window.location.pathname;
+
+    renderPagination(totalPages, currentPage, baseUrl);
+  }
+
+  document.addEventListener('DOMContentLoaded', initPagination);
 })();
