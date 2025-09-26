@@ -9,26 +9,57 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/** Paginación simple para Blogger - Jorge Andrés Amaya 2025 **/
+/** Paginación numérica real - Descubre con Jorge Andrés Amaya - MIT **/
 (function() {
-  var container = document.getElementById('numeracion-paginacion');
+  const itemsPerPage = window.itemsPerPage || 10;
+  const pagesToShow = window.pagesToShow || 5;
+  const container = document.getElementById("numeracion-paginacion");
   if (!container) return;
 
-  var postsPerPage = 10; // Ajusta según tu blog
-  var params = new URLSearchParams(window.location.search);
-  var start = parseInt(params.get('start')) || 0;
-  var currentPage = Math.floor(start / postsPerPage) + 1;
+  function getTotalPosts(callback) {
+    fetch("/feeds/posts/summary?alt=json&max-results=0")
+      .then(res => res.json())
+      .then(data => {
+        const total = parseInt(data.feed.openSearch$totalResults.$t, 10);
+        callback(total);
+      })
+      .catch(() => callback(0));
+  }
 
-  if (currentPage <= 1) return; // Solo mostrar a partir de la segunda página
+  function getCurrentPage() {
+    const url = location.href;
+    const match = url.match(/[?&]start=(\d+)/);
+    const index = match ? parseInt(match[1], 10) : 0;
+    return Math.floor(index / itemsPerPage) + 1;
+  }
 
-  // Crear el indicador de página
-  var span = document.createElement('span');
-  span.textContent = 'Página ' + currentPage;
-  span.style.fontWeight = 'bold';
-  span.style.margin = '0 5px';
+  function buildPagination(totalPosts) {
+    const totalPages = Math.ceil(totalPosts / itemsPerPage);
+    const currentPage = getCurrentPage();
+    if (totalPages <= 1 || currentPage < 2) return;
 
-  container.appendChild(span);
-})();
+    const half = Math.floor(pagesToShow / 2);
+    let start = Math.max(currentPage - half, 2);
+    let end = Math.min(start + pagesToShow - 1, totalPages);
+
+    if (end - start < pagesToShow - 1) {
+      start = Math.max(end - pagesToShow + 1, 2);
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (let i = start; i <= end; i++) {
+      const startParam = (i - 1) * itemsPerPage;
+      const link = document.createElement("a");
+      link.href = `/?start=${startParam}#PageNo=${i}`;
+      link.textContent = i;
+      if (i === currentPage) link.style.fontWeight = "bold";
+      fragment.appendChild(link);
+    }
+
+    container.innerHTML = "";
+    container.style.textAlign = "center";
+    container.appendChild(fragment);
+  }
 
   getTotalPosts(buildPagination);
 })();
