@@ -9,58 +9,62 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/** Paginación numérica real - Descubre con Jorge Andrés Amaya - MIT **/
+/** Paginación Descubre con Jorge Andrés Amaya - 2025 (Licencia MIT) **/
 (function() {
-  const itemsPerPage = window.itemsPerPage || 10;
-  const pagesToShow = window.pagesToShow || 5;
-  const homePage = window.home_page || "/";
-  const container = document.getElementById("numeracion-paginacion");
+  var container = document.getElementById('numeracion-paginacion');
   if (!container) return;
 
+  var postsPerPage = 10; // Ajusta si cambias el número de posts por página
+  var pagesToShow = 5;   // Máximo números visibles
+
   function getTotalPosts(callback) {
-    fetch(homePage + "feeds/posts/summary?alt=json&max-results=0")
-      .then(res => res.json())
-      .then(data => {
-        const total = parseInt(data.feed.openSearch$totalResults.$t, 10);
-        callback(total);
-      })
-      .catch(() => callback(0));
+    // Usar feed JSON de Blogger para contar todas las entradas
+    var script = document.createElement('script');
+    script.src = '/feeds/posts/default?alt=json-in-script&start-index=1&max-results=1&callback=totalPostsCallback';
+    window.totalPostsCallback = function(json) {
+      var total = parseInt(json.feed.openSearch$totalResults.$t);
+      callback(total);
+    };
+    document.body.appendChild(script);
   }
 
   function getCurrentPage() {
-    const url = location.href;
-    const match = url.match(/start-index=(\d+)/);
-    const index = match ? parseInt(match[1], 10) : 1;
-    return Math.ceil(index / itemsPerPage);
+    var params = new URLSearchParams(window.location.search);
+    var start = parseInt(params.get('start')) || 0;
+    return Math.floor(start / postsPerPage) + 1;
   }
 
-  function buildPagination(totalPosts) {
-    const totalPages = Math.ceil(totalPosts / itemsPerPage);
-    const currentPage = getCurrentPage();
-    if (totalPages <= 1 || currentPage < 2) return;
-
-    const half = Math.floor(pagesToShow / 2);
-    let start = Math.max(currentPage - half, 2);
-    let end = Math.min(start + pagesToShow - 1, totalPages);
-
-    if (end - start < pagesToShow - 1) {
-      start = Math.max(end - pagesToShow + 1, 2);
+  function createLink(pageNum, isActive) {
+    var a = document.createElement('a');
+    if (!isActive) {
+      var start = (pageNum - 1) * postsPerPage;
+      a.href = start === 0 ? '/' : '?start=' + start;
+    } else {
+      a.style.fontWeight = 'bold';
+      a.style.pointerEvents = 'none';
     }
-
-    const fragment = document.createDocumentFragment();
-    for (let i = start; i <= end; i++) {
-      const index = (i - 1) * itemsPerPage + 1;
-      const link = document.createElement("a");
-      link.href = homePage + "search?updated-max&start-index=" + index + "&max-results=" + itemsPerPage;
-      link.textContent = i;
-      if (i === currentPage) link.style.fontWeight = "bold";
-      fragment.appendChild(link);
-    }
-
-    container.innerHTML = "";
-    container.style.textAlign = "center";
-    container.appendChild(fragment);
+    a.textContent = pageNum;
+    return a;
   }
 
-  getTotalPosts(buildPagination);
+  function renderPagination(totalPosts) {
+    var totalPages = Math.ceil(totalPosts / postsPerPage);
+    var current = getCurrentPage();
+
+    if (totalPages <= 1 || current === 1) return; // Solo a partir de la segunda página
+
+    container.innerHTML = '';
+
+    var startPage = Math.max(current - 2, 1);
+    var endPage = Math.min(startPage + pagesToShow - 1, totalPages);
+    if (endPage - startPage < pagesToShow - 1) {
+      startPage = Math.max(endPage - pagesToShow + 1, 1);
+    }
+
+    for (var i = startPage; i <= endPage; i++) {
+      container.appendChild(createLink(i, i === current));
+    }
+  }
+
+  getTotalPosts(renderPagination);
 })();
