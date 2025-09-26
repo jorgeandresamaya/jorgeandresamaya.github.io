@@ -9,37 +9,35 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/** Paginación simple para Blogger - Jorge Andrés Amaya 2025 **/
+/** Paginación numérica visible - Jorge Andrés Amaya - MIT **/
 (function() {
-  var container = document.getElementById('numeracion-paginacion');
+  const itemsPerPage = 10;
+  const pagesToShow = 5;
+  const container = document.getElementById("numeracion-paginacion");
   if (!container) return;
 
-  var postsPerPage = 10; // Ajusta según tu blog
-  var params = new URLSearchParams(window.location.search);
-  var start = parseInt(params.get('start')) || 0;
-  var currentPage = Math.floor(start / postsPerPage) + 1;
+  const url = location.href;
+  const match = url.match(/[?&]start=(\d+)/);
+  const currentStart = match ? parseInt(match[1], 10) : 0;
+  const currentPage = Math.floor(currentStart / itemsPerPage) + 1;
 
-  if (currentPage <= 1) return; // Solo mostrar a partir de la segunda página
+  if (currentPage < 2) return; // Ocultar en la primera página
 
-  // Crear contenedor de numeración centrada
-  container.style.textAlign = 'center';
+  const half = Math.floor(pagesToShow / 2);
+  let startPage = Math.max(currentPage - half, 2);
+  let endPage = startPage + pagesToShow - 1;
 
-  // Crear los 5 números aproximados
-  var pagesToShow = 5;
-  var half = Math.floor(pagesToShow / 2);
-  var startNum = Math.max(currentPage - half, 1);
-
-  for (var i = startNum; i < startNum + pagesToShow; i++) {
-    var a = document.createElement('a');
-    a.textContent = i;
-    if (i === currentPage) {
-      a.style.fontWeight = 'bold';
-      a.style.pointerEvents = 'none';
-    } else {
-      var pageStart = (i - 1) * postsPerPage;
-      a.href = pageStart === 0 ? '/' : '?start=' + pageStart;
-    }
-    a.style.margin = '0 5px';
-    container.appendChild(a);
+  const fragment = document.createDocumentFragment();
+  for (let i = startPage; i <= endPage; i++) {
+    const startParam = (i - 1) * itemsPerPage;
+    const link = document.createElement("a");
+    link.href = `/?start=${startParam}#PageNo=${i}`;
+    link.textContent = i;
+    if (i === currentPage) link.style.fontWeight = "bold";
+    fragment.appendChild(link);
   }
+
+  container.innerHTML = "";
+  container.style.textAlign = "center";
+  container.appendChild(fragment);
 })();
