@@ -9,7 +9,7 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/* paginacion.js — Final (usa updated-max, inserta en medio de las flechas, 5 números) */
+/* paginacion.js — ajustado: números entre flechas, ocultos en home */
 (function(){
   "use strict";
 
@@ -36,24 +36,17 @@
     try{ const u = new URL(a.href); return Number(u.searchParams.get("max-results")) || null; } catch(e){ return null; }
   }
 
-  function normalizeDate(s){ if(!s) return s; return String(s).replace(/\.\d+/, "").trim(); } // remove milliseconds
+  function normalizeDate(s){ if(!s) return s; return String(s).replace(/\.\d+/, "").trim(); }
 
   function buildPageLink({homeUrl,label,query,updated,maxResults,startIndex}){
-    // first page => home/label root
     if(!updated && (!startIndex || startIndex <= 1)){
       if(label) return `${homeUrl}/search/label/${label}?max-results=${maxResults}`;
       if(query) return `${homeUrl}/search?q=${encodeURIComponent(query)}&max-results=${maxResults}`;
       return homeUrl + "/";
     }
     const prefix = label ? `${homeUrl}/search/label/${label}?` : (query ? `${homeUrl}/search?q=${encodeURIComponent(query)}&` : `${homeUrl}/search?`);
-    if(updated){
-      // include start param if we have one
-      const startPart = (typeof startIndex === "number" && startIndex > 1) ? `&start=${startIndex}` : "";
-      return `${prefix}updated-max=${encodeURIComponent(updated)}&max-results=${maxResults}${startPart}`;
-    }
-    // fallback to start-index
-    const sidx = (typeof startIndex === "number" && startIndex > 0) ? startIndex : 1;
-    return `${prefix}start-index=${sidx}&max-results=${maxResults}`;
+    const startPart = (typeof startIndex === "number" && startIndex > 1) ? `&start=${startIndex}` : "";
+    return `${prefix}updated-max=${encodeURIComponent(updated)}&max-results=${maxResults}${startPart}`;
   }
 
   function ranges(a,b){ const o=[]; for(let i=a;i<=b;i++) o.push(i); return o; }
@@ -63,6 +56,8 @@
       this.config = Object.assign({}, DEFAULTS, opts);
       this.homeUrl = window.location.origin;
       this.curUrl = new URL(window.location.href);
+      this.isHome = this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html";
+      if(this.isHome) return; // no mostrar en home
       this.label = null;
       if(this.curUrl.pathname.includes("/search/label/")){
         const bits = this.curUrl.pathname.split("/"); this.label = bits[bits.length-1] || null;
@@ -78,14 +73,13 @@
 
     async init(){
       if(!this._ensureNodes()) return;
-      if(!this.maxResults) this.maxResults = 10; // fallback
+      if(!this.maxResults) this.maxResults = 10;
 
       const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
+      let summary=null;
+      try { summary = await this._fetchSummary(); } catch(e){}
 
-      let summary = null;
-      try { summary = await this._fetchSummary(); } catch(e){ /* ignore */ }
-
-      let postDates = (cached && cached.postDates && cached.postDates.length) ? cached.postDates : [];
+      let postDates = (cached.postDates && cached.postDates.length) ? cached.postDates : [];
       if(!postDates.length || (summary && summary.updated && summary.updated !== cached.updated)){
         try {
           const fetched = await this._fetchAllPostDates(summary ? summary.totalPosts : (cached.totalPosts || 0));
@@ -93,12 +87,10 @@
             postDates = fetched.postDates;
             writeCache(this._cacheKey, { totalPosts: fetched.totalPosts, postDates: fetched.postDates, updated: (summary ? summary.updated : (cached.updated || null)) });
           }
-        } catch(e){
-          // if fails, we keep whatever cached or empty
-        }
+        } catch(e){}
       }
 
-      const totalPosts = (readCache(this._cacheKey) && readCache(this._cacheKey).totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
+      const totalPosts = (readCache(this._cacheKey)?.totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
       const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
 
       const currentPage = this._computeCurrentPage(postDates, totalPages);
@@ -106,30 +98,22 @@
       const pagesToShow = this._computePagesToShow(totalPages, currentPage);
 
       this._render(pagesToShow, postDates, totalPages, currentPage);
-
-      // keep native Blogger buttons intact (we didn't remove them)
     }
 
     _ensureNodes(){
       if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
       if(!this.pagerNode) return false;
       if(!this.numbersNode){
-        const existing = this.pagerNode.querySelector(this.config.numberSelector);
-        if(existing) this.numbersNode = existing;
-        else {
-          const div = document.createElement("div");
-          div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-          // minimal inline to keep alignment
-          div.style.display = "inline-block";
-          div.style.verticalAlign = "middle";
-          div.style.margin = "0 6px";
-          // insert before older-link so numbers sit between newer and older
-          const older = this.pagerNode.querySelector(".blog-pager-older-link");
-          this.pagerNode.insertBefore(div, older || null);
-          this.numbersNode = div;
-        }
+        const div = document.createElement("div");
+        div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+        div.style.display = "inline-block";
+        div.style.verticalAlign = "middle";
+        div.style.margin = "0 6px";
+        const older = this.pagerNode.querySelector(".blog-pager-older-link");
+        this.pagerNode.insertBefore(div, older || null);
+        this.numbersNode = div;
       }
-      try { this.pagerNode.style.textAlign = "center"; } catch(e){}
+      this.pagerNode.style.textAlign="center";
       return !!this.numbersNode;
     }
 
@@ -144,12 +128,12 @@
 
     async _fetchAllPostDates(totalFromSummary=0){
       const total = totalFromSummary || 0;
-      if(total === 0) return { totalPosts: 0, postDates: [] };
+      if(total===0) return { totalPosts:0, postDates:[] };
       const batch = this.config.batchSize;
       const pages = Math.ceil(total / batch);
-      const promises = [];
+      const promises=[];
       for(let i=0;i<pages;i++){
-        const startIndex = i*batch + 1;
+        const startIndex=i*batch+1;
         const url = `${this.homeUrl}/feeds/posts/summary/${this.label ? `-/${this.label}?` : "?"}alt=json&max-results=${batch}&start-index=${startIndex}`;
         promises.push(fetch(url).then(r=>r.json()).catch(()=>null));
       }
@@ -164,98 +148,87 @@
       const cur = normalizeDate(this.currentUpdated);
       for(let p=2;p<=totalPages;p++){
         const idx = (p-1)*this.maxResults -1;
-        if(idx >=0 && idx < postDates.length){
+        if(idx>=0 && idx<postDates.length){
           const candidate = normalizeDate(postDates[idx]);
-          if(candidate === cur || encodeURIComponent(candidate) === this.currentUpdated || decodeURIComponent(this.currentUpdated||"") === candidate) return p;
+          if(candidate===cur || encodeURIComponent(candidate)===this.currentUpdated || decodeURIComponent(this.currentUpdated||"")===candidate) return p;
         }
       }
       return 1;
     }
 
     _computePagesToShow(totalPages, currentPage){
-      const visible = Math.max(1, Number(this.config.totalVisibleNumbers) || 5);
-      if(totalPages <= visible) return ranges(1, totalPages);
-      const k = visible - 1; // aside from last page
+      const visible = Number(this.config.totalVisibleNumbers) || 5;
+      if(totalPages<=visible) return ranges(1,totalPages);
+      const k = visible-1;
       let start = currentPage - Math.floor(k/2);
-      if(start < 2) start = 2;
-      let end = start + k - 1;
-      if(end > totalPages - 1){ end = totalPages - 1; start = Math.max(2, end - k + 1); }
-      const middle = ranges(start, end);
-      const result = [1].concat(middle);
+      if(start<2) start=2;
+      let end = start+k-1;
+      if(end>totalPages-1){ end=totalPages-1; start=Math.max(2,end-k+1);}
+      const middle = ranges(start,end);
+      const result=[1].concat(middle);
       if(!result.includes(totalPages)) result.push(totalPages);
       return result;
     }
 
     _render(pagesArr, postDates, totalPages, currentPage){
       if(!this.numbersNode) return;
-      this.numbersNode.innerHTML = "";
-      this.numbersNode.style.display = "inline-block";
-      this.numbersNode.style.verticalAlign = "middle";
-      this.numbersNode.style.textAlign = "center";
+      this.numbersNode.innerHTML="";
+      this.numbersNode.style.display="inline-block";
+      this.numbersNode.style.verticalAlign="middle";
 
-      const frag = document.createDocumentFragment();
-
-      const makeAnchor = (page, text, isActive) => {
-        const a = document.createElement("a");
-        a.className = this.config.numberClass + (isActive ? " " + this.config.activeClass : "");
-        a.textContent = String(text);
+      const frag=document.createDocumentFragment();
+      const makeAnchor=(page,text,isActive)=>{
+        const a=document.createElement("a");
+        a.className=this.config.numberClass + (isActive?" "+this.config.activeClass:"");
+        a.textContent=String(text);
         if(!isActive){
-          if(page === 1){
-            if(this.label) a.href = `${this.homeUrl}/search/label/${this.label}?max-results=${this.maxResults}`;
-            else if(this.query) a.href = `${this.homeUrl}/search?q=${encodeURIComponent(this.query)}&max-results=${this.maxResults}`;
-            else a.href = this.homeUrl + "/";
-          } else {
-            const idx = (page - 1)*this.maxResults - 1;
-            const updated = (idx >=0 && idx < postDates.length) ? postDates[idx] : null;
-            const startIndex = (page - 1)*this.maxResults;
-            a.href = buildPageLink({ homeUrl: this.homeUrl, label: this.label, query: this.query, updated: updated, maxResults: this.maxResults, startIndex: startIndex });
-          }
+          const idx=(page-1)*this.maxResults -1;
+          const updated=(idx>=0 && idx<postDates.length) ? postDates[idx] : null;
+          const startIndex=(page-1)*this.maxResults;
+          a.href=buildPageLink({homeUrl:this.homeUrl,label:this.label,query:this.query,updated:updated,maxResults:this.maxResults,startIndex:startIndex});
         }
-        a.style.display = "inline-block";
-        a.style.verticalAlign = "middle";
-        a.style.margin = "0 6px";
+        a.style.display="inline-block";
+        a.style.verticalAlign="middle";
+        a.style.margin="0 6px";
         return a;
       };
 
-      const makeDots = () => {
-        const s = document.createElement("span");
-        s.className = this.config.dotsClass;
-        s.textContent = "…";
-        s.style.display = "inline-block";
-        s.style.verticalAlign = "middle";
-        s.style.margin = "0 6px";
-        s.style.pointerEvents = "none";
+      const makeDots=()=>{
+        const s=document.createElement("span");
+        s.className=this.config.dotsClass;
+        s.textContent="…";
+        s.style.display="inline-block";
+        s.style.verticalAlign="middle";
+        s.style.margin="0 6px";
+        s.style.pointerEvents="none";
         return s;
       };
 
-      let prev = null;
-      pagesArr.forEach(p => {
-        if(prev !== null && p - prev > 1){
-          frag.appendChild(makeDots());
-        }
-        const isActive = (p === currentPage);
-        frag.appendChild(makeAnchor(p, p, isActive));
-        prev = p;
+      let prev=null;
+      pagesArr.forEach(p=>{
+        if(prev!==null && p-prev>1) frag.appendChild(makeDots());
+        const isActive = (p===currentPage);
+        frag.appendChild(makeAnchor(p,p,isActive));
+        prev=p;
       });
 
       this.numbersNode.appendChild(frag);
     }
   }
 
-  // auto init with retries
   function autoInit(attempts=14, delay=400){
-    let tries = 0;
-    const tryNow = () => {
+    let tries=0;
+    const tryNow=()=>{
       tries++;
       const pager = qs(DEFAULTS.pagerSelector);
       if(pager){
         const inst = new BloggerPager();
-        inst.init().catch(e => console.warn("BloggerPager init error:", e));
+        inst.init().catch(e=>console.warn("BloggerPager init error:",e));
         return;
       }
-      if(tries < attempts) setTimeout(tryNow, delay);
+      if(tries<attempts) setTimeout(tryNow,delay);
     };
-    if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", tryNow);
+    if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", tryNow);
     else tryNow();
   }
 
