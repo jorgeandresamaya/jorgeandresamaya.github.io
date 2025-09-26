@@ -9,49 +9,43 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-// paginacion.js - versión mínima
-
-(function () {
-  // Configuración
-  var maxPagesToShow = 5; // cantidad máxima de números visibles
-  var url = window.location.href;
-  var match = url.match(/search\?updated-max/);
-  var isHome = document.body.classList.contains('home');
-
-  // Solo en homepage o al paginar
-  if (!isHome && !match) return;
-
-  var container = document.getElementById("numeracion-paginacion");
+(function() {
+  const container = document.querySelector("#numeracion-paginacion");
   if (!container) return;
 
-  // Para prueba: total de páginas simulado (ej. 20)
-  var totalPages = 20;
+  const maxPages = 20; // Puedes ajustar este número según el crecimiento de tu blog
+  const currentUrl = window.location.href;
+  const currentPage = (() => {
+    const match = currentUrl.match(/start=(\d+)/);
+    const start = match ? parseInt(match[1]) : 0;
+    const maxResults = 10; // Ajusta según tu configuración real
+    return Math.floor(start / maxResults) + 1;
+  })();
 
-  // Detectar número de página actual (ejemplo simple)
-  var currentPage = 1;
-  if (match) {
-    var param = url.split("page=")[1];
-    if (param) currentPage = parseInt(param, 10);
+  if (currentPage === 1) return; // No mostrar numeración en la primera página
+
+  const visible = 5;
+  const half = Math.floor(visible / 2);
+  let start = Math.max(currentPage - half, 1);
+  let end = Math.min(start + visible - 1, maxPages);
+
+  if (end - start < visible - 1) {
+    start = Math.max(end - visible + 1, 1);
   }
 
-  // Calcular rango de páginas a mostrar
-  var start = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-  var end = Math.min(totalPages, start + maxPagesToShow - 1);
+  const fragment = document.createDocumentFragment();
 
-  // Ajustar si no hay suficientes páginas
-  if (end - start + 1 < maxPagesToShow) {
-    start = Math.max(1, end - maxPagesToShow + 1);
+  for (let i = start; i <= end; i++) {
+    const link = document.createElement("a");
+    link.textContent = i;
+    link.className = "pager-item" + (i === currentPage ? " is-active" : "");
+    const startIndex = (i - 1) * 10; // Ajusta según tu max-results
+    link.href = i === 1
+      ? window.location.origin
+      : `${window.location.origin}/search?updated-max=placeholder&max-results=10&start=${startIndex}&by-date=false`;
+    fragment.appendChild(link);
   }
 
-  // Generar HTML
-  var html = "";
-  for (var i = start; i <= end; i++) {
-    if (i === currentPage) {
-      html += "<span class='active'>" + i + "</span>";
-    } else {
-      html += "<a href='?page=" + i + "'>" + i + "</a>";
-    }
-  }
-
-  container.innerHTML = html;
+  container.innerHTML = "";
+  container.appendChild(fragment);
 })();
