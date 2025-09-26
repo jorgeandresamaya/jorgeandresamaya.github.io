@@ -9,51 +9,64 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/** Paginación Descubre con Jorge Andrés Amaya - Copyright © 2025 (Licencia MIT) **/
+/** Paginación numérica automática - Descubre con Jorge Andrés Amaya - MIT License **/
 (function() {
-  // Configuración
-  var numeracionContainer = document.getElementById('numeracion-paginacion');
+  const itemsPerPage = window.itemsPerPage || 10;
+  const pagesToShow = window.pagesToShow || 5;
+  const urlactivepage = window.urlactivepage || location.href;
+  const home_page = window.home_page || "/";
+  const numeracionContainer = document.getElementById("numeracion-paginacion");
+
   if (!numeracionContainer) return;
 
-  // Detecta la página actual y total de páginas
+  function getTotalPosts(callback) {
+    const feedUrl = home_page + "feeds/posts/summary?alt=json&max-results=0";
+    fetch(feedUrl)
+      .then(res => res.json())
+      .then(data => {
+        const totalPosts = parseInt(data.feed.openSearch$totalResults.$t, 10);
+        callback(totalPosts);
+      })
+      .catch(() => callback(0));
+  }
+
   function getCurrentPage() {
-    var params = new URLSearchParams(window.location.search);
-    return parseInt(params.get('max-results') || 1) || 1;
+    const match = urlactivepage.match(/\/search\/label\/.*?[?&]start-index=(\d+)/) ||
+                  urlactivepage.match(/[?&]start-index=(\d+)/);
+    const startIndex = match ? parseInt(match[1], 10) : 1;
+    return Math.ceil(startIndex / itemsPerPage);
   }
 
-  function getTotalPages() {
-    var totalPosts = parseInt(document.querySelectorAll('.post').length);
-    return Math.ceil(totalPosts / 10) || 1;
-  }
+  function buildPagination(totalPosts) {
+    const totalPages = Math.ceil(totalPosts / itemsPerPage);
+    const currentPage = getCurrentPage();
+    if (totalPages <= 1 || currentPage < 2) return;
 
-  function createPageLink(pageNum, isActive) {
-    var a = document.createElement('a');
-    a.href = '?updated-max=' + pageNum; // Enlace básico, Blogger se ajustará automáticamente
-    a.textContent = pageNum;
-    if (isActive) a.style.fontWeight = 'bold';
-    return a;
-  }
-
-  function renderPagination() {
-    var currentPage = getCurrentPage();
-    var totalPages = getTotalPages();
-
-    if (totalPages <= 1 || currentPage === 1) return; // Solo a partir de la segunda página
-
-    numeracionContainer.innerHTML = ''; // Limpiar contenedor
-
-    var pagesToShow = 5;
-    var startPage = Math.max(currentPage - 2, 1);
-    var endPage = Math.min(startPage + pagesToShow - 1, totalPages);
+    const half = Math.floor(pagesToShow / 2);
+    let startPage = Math.max(currentPage - half, 2);
+    let endPage = Math.min(startPage + pagesToShow - 1, totalPages);
 
     if (endPage - startPage < pagesToShow - 1) {
-      startPage = Math.max(endPage - pagesToShow + 1, 1);
+      startPage = Math.max(endPage - pagesToShow + 1, 2);
     }
 
-    for (var i = startPage; i <= endPage; i++) {
-      numeracionContainer.appendChild(createPageLink(i, i === currentPage));
+    const fragment = document.createDocumentFragment();
+
+    for (let i = startPage; i <= endPage; i++) {
+      const pageIndex = (i - 1) * itemsPerPage + 1;
+      const pageUrl = home_page + "search?updated-max&start-index=" + pageIndex + "&max-results=" + itemsPerPage;
+      const link = document.createElement("a");
+      link.href = pageUrl;
+      link.textContent = i;
+      if (i === currentPage) link.style.fontWeight = "bold";
+      fragment.appendChild(link);
     }
+
+    numeracionContainer.innerHTML = "";
+    numeracionContainer.style.margin = "10px 0";
+    numeracionContainer.style.textAlign = "center";
+    numeracionContainer.appendChild(fragment);
   }
 
-  document.addEventListener('DOMContentLoaded', renderPagination);
+  getTotalPosts(buildPagination);
 })();
