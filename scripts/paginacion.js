@@ -8,7 +8,16 @@
  *              oculta en la primera página, sin reemplazar #blog-pager ni duplicar elementos.
  */
 
-// Variables globales (deben definirse en la plantilla antes de cargar este script)
+// =============================================================================
+// VARIABLES GLOBALES DEL SCRIPT (se esperan que sean definidas en la plantilla)
+// =============================================================================
+// Esperamos que estas variables estén definidas en la plantilla de Blogger:
+// var itemsPerPage = 10;
+// var pagesToShow = 5;
+// var prevpage = 'Artículos más recientes';
+// var nextpage = 'Artículos anteriores';
+// var home_page = "<data:blog.homepageUrl/>"; // URL completa del blog
+
 // Variables internas del script (no modificar)
 var currentPage, searchQuery, lastPostDate = null, type, lblname1, nopage;
 var isPaginationRendered = false; // Flag para evitar renderizados múltiples
@@ -54,15 +63,16 @@ function renderPagination(totalPosts) {
 
     console.log("Calculated maximum pages:", maximum);
 
-    // Solo mostrar la numeración si no es la primera página Y hay más de una página en total
+    // TODO: Ajuste aquí
+    // La numeración completa (incluido "Hoja X de Y") solo se genera
+    // si NO es la primera página Y hay más de una página en total.
     if (currentPage > 1 && maximum > 1) {
+        // "Hoja X de Y" ahora se genera dentro de esta condición
         paginationHTML += `<span class='totalpages'>Hoja ${currentPage} de ${maximum}</span>`;
 
         // Botón "Anterior"
-        if (currentPage > 1) {
-            paginationHTML += createPageLink(currentPage - 1, prevpage);
-        }
-
+        paginationHTML += createPageLink(currentPage - 1, prevpage);
+        
         // Números de página
         let start = Math.max(currentPage - leftnum, 1);
         let end = Math.min(start + pagesToShow - 1, maximum);
@@ -80,11 +90,10 @@ function renderPagination(totalPosts) {
         if (end < maximum) paginationHTML += createPageLink(maximum, maximum);
 
         // Botón "Siguiente"
-        if (currentPage < maximum) {
-            paginationHTML += createPageLink(currentPage + 1, nextpage);
-        }
+        paginationHTML += createPageLink(currentPage + 1, nextpage);
+
     } else {
-        console.log("Pagination numbers not displayed: currentPage is 1 or maximum pages is 1.");
+        console.log("No pagination numbers or 'Hoja X de Y' displayed: currentPage is 1 or maximum pages is 1.");
     }
 
     let pagerElement = document.getElementById("blog-pager");
@@ -97,7 +106,14 @@ function renderPagination(totalPosts) {
 
         console.log("prevButton:", prevButton, "nextButton:", nextButton);
 
-        // Si tenemos HTML de paginación
+        // Limpiamos cualquier paginación anterior personalizada
+        let existingWrapper = pagerElement.querySelector(".pagination-numbers-wrapper");
+        if (existingWrapper) {
+            console.log("Removing existing .pagination-numbers-wrapper.");
+            existingWrapper.remove();
+        }
+
+        // Si tenemos HTML de paginación (es decir, currentPage > 1 y maximum > 1)
         if (paginationHTML) {
             let paginationWrapper = document.createElement("div");
             paginationWrapper.className = "pagination-numbers-wrapper";
@@ -106,22 +122,7 @@ function renderPagination(totalPosts) {
             // Intento 1: Insertar entre los botones si ambos existen
             if (prevButton && nextButton) {
                 console.log("Both prev and next buttons found. Inserting pagination in the middle.");
-                // Removemos el contenido original para evitar duplicados si Blogger ya tiene algo ahí.
-                // Es más seguro insertar y luego remover.
-                // Podríamos usar un enfoque más sofisticado con flexbox order en CSS.
-                // Pero para la inserción, esta es una manera directa.
-                if (pagerElement.children.length > 0) {
-                     // Si los botones de blogger están dentro de <b:if> y no siempre existen
-                     // el innerHTML puede estar vacío. Si no, lo limpiamos.
-                     // Pero mejor no borrar todo el innerHTML por si hay scripts dentro.
-                }
-
                 pagerElement.insertBefore(paginationWrapper, nextButton);
-                // Si la plantilla de Blogger duplica el contenido del paginador
-                // puedes intentar eliminar los enlaces originales después de insertar:
-                // if(prevButton.parentNode === pagerElement) prevButton.remove();
-                // if(nextButton.parentNode === pagerElement) nextButton.remove();
-
             } 
             // Intento 2: Si solo existe el botón de "más reciente", insertar antes
             else if (nextButton) {
@@ -131,18 +132,16 @@ function renderPagination(totalPosts) {
             // Intento 3: Si solo existe el botón de "más antiguo", insertar después
             else if (prevButton) {
                  console.log("Only prev button found. Inserting pagination after it.");
-                 pagerElement.appendChild(paginationWrapper); // AppendChild lo coloca al final
+                 pagerElement.appendChild(paginationWrapper);
             }
             // Intento 4: Si no hay botones predeterminados, pero sí hay #blog-pager, reemplazar su contenido
             else {
                 console.log("No specific prev/next buttons found. Replacing #blog-pager content.");
-                pagerElement.innerHTML = paginationHTML; // Esta es la opción más drástica
+                pagerElement.innerHTML = paginationHTML;
             }
         } else {
-            console.log("No pagination HTML generated (currentPage is 1 or max pages is 1). Clearing custom pagination area.");
-            // Si no hay numeración para mostrar, nos aseguramos de que no haya elementos de numeración antiguos
-            let existingWrapper = pagerElement.querySelector(".pagination-numbers-wrapper");
-            if (existingWrapper) existingWrapper.remove();
+            console.log("No pagination HTML generated for current page conditions.");
+            // Si no hay paginación para mostrar, asegúrate de que el contenedor esté vacío o inexistente
         }
     } else {
         console.error("#blog-pager not found. Custom pagination cannot be injected.");
@@ -155,10 +154,7 @@ function paginationall(data) {
     let totalResults = parseInt(data.feed.openSearch$totalResults.$t, 10);
     if (isNaN(totalResults) || totalResults <= 0) {
         console.warn("totalResults is not a valid number or is 0. Using itemsPerPage as fallback. (This might be a problem if you have many posts).");
-        totalResults = itemsPerPage; // Fallback si no hay resultados válidos o si el feed está vacío
-        // Si tienes pocos posts, Blogger puede no devolver totalResults.$t.
-        // Si esto ocurre, la paginación no se mostrará correctamente.
-        // Podrías necesitar un número de maxResults mayor en la llamada al feed para obtener un total real.
+        totalResults = itemsPerPage;
     }
     if (data.feed.entry && data.feed.entry.length > 0) {
         lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
@@ -167,7 +163,7 @@ function paginationall(data) {
         lastPostDate = new Date().toISOString();
         console.log("lastPostDate not found in feed, using current date:", lastPostDate);
     }
-    renderPagination(totalResults); // Llama a la función de renderizado
+    renderPagination(totalResults);
 }
 
 // =============================================================================
@@ -244,7 +240,6 @@ function initializeBloggerPagination() {
     console.log("Determined currentPage:", currentPage);
 
     let scriptUrl;
-    // Usamos un número alto para max-results para que Blogger devuelva el total de posts
     const maxResultsForTotal = 200; 
     if (type === "search") {
         let searchParam = searchQuery ? `q=${encodeURIComponent(searchQuery)}` : "";
@@ -261,7 +256,6 @@ function initializeBloggerPagination() {
     script.onerror = () => console.error("Error al cargar el feed:", scriptUrl);
     document.body.appendChild(script);
 
-    // Ajustar enlaces de etiquetas que no tienen max-results (solo si ya no se han ajustado)
     let labelLinks = document.querySelectorAll('a[href*="/search/label/"]');
     labelLinks.forEach(function (link) {
         if (!link.href.includes("?&max-results=") && !link.href.includes("&max-results=")) {
@@ -277,12 +271,12 @@ const debounceInitialize = () => {
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => {
         initializeBloggerPagination();
-    }, 500); // Pequeño retraso para asegurar que todos los elementos de Blogger estén cargados
+    }, 500); 
 };
 
 // Event Listeners
 document.addEventListener("DOMContentLoaded", debounceInitialize);
-window.addEventListener("load", debounceInitialize); // Fallback para asegurar ejecución
+window.addEventListener("load", debounceInitialize); 
 
 // Función para el formulario de búsqueda
 function addMaxResults(event) {
