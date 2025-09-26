@@ -9,60 +9,163 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-(function () {
-  const itemsPerPage = typeof window.itemsPerPage !== "undefined" ? window.itemsPerPage : 10;
-  const pagesToShow = 5;
-  const containerId = "numeracion-paginacion";
-  const currentPage = location.href.includes("#PageNo=")
-    ? parseInt(location.href.split("#PageNo=")[1], 10)
-    : 1;
+(function(){
+  var itemsPerPage = 10;
+  var pagesToShow = 5;
+  var prevLabel = 'Artículos más recientes';
+  var nextLabel = 'Artículos anteriores';
+  var homePage = "/";
+  var currentPage = 1;
+  var totalPages = 1;
+  var searchQuery = "";
+  var type = "page"; // page, label, search
+  var labelName = "";
+  var lastPostDate = null;
 
-  if (currentPage === 1) return;
+  // Obtener página actual del URL
+  function getCurrentPage() {
+    var url = window.location.href;
+    var match = url.match(/#PageNo=(\d+)/);
+    if(match) return parseInt(match[1],10);
+    return 1;
+  }
 
-  const feedUrl = `${location.origin}/feeds/posts/summary?alt=json-in-script&max-results=1&callback=renderPagination`;
+  function getSearchQueryParam() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get("q") || "";
+  }
 
-  const script = document.createElement("script");
-  script.src = feedUrl;
-  document.body.appendChild(script);
+  // Construir enlace paginación
+  function createLink(pageNum, text) {
+    var href = "#";
+    if(type === "page") {
+      href = homePage + "?updated-max=" + encodeURIComponent(lastPostDate || new Date().toISOString()) + "&max-results=" + itemsPerPage + "&start=" + ((pageNum-1)*itemsPerPage) + "#PageNo=" + pageNum;
+    } else if(type === "label") {
+      href = homePage + "search/label/" + labelName + "?updated-max=" + encodeURIComponent(lastPostDate || new Date().toISOString()) + "&max-results=" + itemsPerPage + "&start=" + ((pageNum-1)*itemsPerPage) + "#PageNo=" + pageNum;
+    } else if(type === "search") {
+      href = homePage + "search?q=" + encodeURIComponent(searchQuery) + "&updated-max=" + encodeURIComponent(lastPostDate || new Date().toISOString()) + "&max-results=" + itemsPerPage + "&start=" + ((pageNum-1)*itemsPerPage) + "#PageNo=" + pageNum;
+    }
+    return `<a href="${href}">${text}</a>`;
+  }
 
-  window.renderPagination = function (data) {
-    const totalPosts = parseInt(data.feed.openSearch$totalResults.$t, 10);
-    const totalPages = Math.ceil(totalPosts / itemsPerPage);
-    if (totalPages <= 1) return;
+  // Generar HTML de paginación
+  function buildPagination() {
+    var paginationHTML = "";
+    var half = Math.floor(pagesToShow / 2);
+    var start = 1;
+    var end = totalPages;
 
-    let html = "";
-    let left = Math.floor(pagesToShow / 2);
-    let start = Math.max(currentPage - left, 2);
-    let end = Math.min(start + pagesToShow - 1, totalPages);
-
-    if (start > 2) {
-      html += pageLink(1);
-      if (start > 3) html += ellipsis();
+    if(totalPages <= pagesToShow) {
+      start = 1;
+      end = totalPages;
+    } else if(currentPage <= half + 1) {
+      start = 1;
+      end = pagesToShow;
+    } else if(currentPage >= totalPages - half) {
+      start = totalPages - pagesToShow +1;
+      end = totalPages;
+    } else {
+      start = currentPage - half;
+      end = currentPage + half;
     }
 
-    for (let i = start; i <= end; i++) {
-      html += i === currentPage ? current(i) : pageLink(i);
+    // Botón anterior
+    var prevHTML = "";
+    if(currentPage > 1) {
+      prevHTML = createLink(currentPage - 1, prevLabel);
     }
 
-    if (end < totalPages - 1) html += ellipsis();
-    if (end < totalPages) html += pageLink(totalPages);
-
-    const container = document.getElementById(containerId);
-    if (container) {
-      container.innerHTML = `<div style="text-align:center;">${html}</div>`;
+    // Botón siguiente
+    var nextHTML = "";
+    if(currentPage < totalPages) {
+      nextHTML = createLink(currentPage + 1, nextLabel);
     }
+
+    // Números de página
+    var numbersHTML = "";
+    if(start > 1) {
+      numbersHTML += `<span class="pagenumber">${createLink(1, "1")}</span>`;
+      if(start > 2) numbersHTML += `<span class="dots">...</span>`;
+    }
+    for(var i = start; i <= end; i++) {
+      if(i === currentPage) {
+        numbersHTML += `<span class="pagenumber current">${i}</span>`;
+      } else {
+        numbersHTML += `<span class="pagenumber">${createLink(i, i)}</span>`;
+      }
+    }
+    if(end < totalPages) {
+      if(end < totalPages -1) numbersHTML += `<span class="dots">...</span>`;
+      numbersHTML += `<span class="pagenumber">${createLink(totalPages, totalPages)}</span>`;
+    }
+
+    // Insertar en elementos HTML
+    var pager = document.getElementById("blog-pager");
+    var numbersContainer = document.getElementById("numeracion-paginacion");
+
+    if(!pager || !numbersContainer) return;
+
+    // Insertar botones en blog-pager, sin texto antes
+    pager.innerHTML = "";
+    if(prevHTML) pager.insertAdjacentHTML('beforeend', `<span class="pager-prev">${prevHTML}</span>`);
+    if(nextHTML) pager.insertAdjacentHTML('beforeend', `<span class="pager-next">${nextHTML}</span>`);
+
+    // Insertar numeros centrados sólo si página > 1
+    numbersContainer.innerHTML = currentPage > 1 ? numbersHTML : "";
+  }
+
+  // Obtener datos totales mediante feed
+  function fetchTotalPosts() {
+    var feedURL = "";
+    if(type === "search") {
+      feedURL = homePage + "feeds/posts/summary?q=" + encodeURIComponent(searchQuery) + "&max-results=1&alt=json-in-script&callback=totalPostsCallback";
+    } else if(type === "label") {
+      feedURL = homePage + "feeds/posts/summary/-/" + labelName + "?max-results=1&alt=json-in-script&callback=totalPostsCallback";
+    } else {
+      feedURL = homePage + "feeds/posts/summary?max-results=1&alt=json-in-script&callback=totalPostsCallback";
+    }
+    var script = document.createElement("script");
+    script.src = feedURL;
+    document.body.appendChild(script);
+  }
+
+  // Callback feed JSON para obtener total de entradas
+  window.totalPostsCallback = function(data) {
+    var total = 0;
+    try {
+      total = parseInt(data.feed.openSearch$totalResults.$t, 10);
+    } catch(e) {
+      total = itemsPerPage;
+    }
+    if(total === 0) total = itemsPerPage;
+
+    try {
+      lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
+    } catch(e) {
+      lastPostDate = new Date().toISOString();
+    }
+
+    totalPages = Math.ceil(total / itemsPerPage);
+    buildPagination();
   };
 
-  function pageLink(page) {
-    const url = `${location.origin}/search?updated-max=${new Date().toISOString()}&max-results=${itemsPerPage}#PageNo=${page}`;
-    return `<span class="pagenumber"><a href="${url}">${page}</a></span>`;
+  // Detectar tipo de página y configurar variables globales
+  function initialize() {
+    currentPage = getCurrentPage();
+    searchQuery = getSearchQueryParam();
+
+    var url = window.location.href;
+    if(url.match(/\/search\/label\//)) {
+      type = "label";
+      labelName = url.match(/\/search\/label\/([^?]+)/)[1];
+    } else if(searchQuery !== "") {
+      type = "search";
+    } else {
+      type = "page";
+    }
+    fetchTotalPosts();
   }
 
-  function current(page) {
-    return `<span class="pagenumber current">${page}</span>`;
-  }
-
-  function ellipsis() {
-    return `<span class="pagenumber">...</span>`;
-  }
+  // Iniciar cuando DOM listo
+  document.addEventListener("DOMContentLoaded", initialize);
 })();
