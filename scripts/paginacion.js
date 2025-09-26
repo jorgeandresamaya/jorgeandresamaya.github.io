@@ -9,7 +9,6 @@
  */
 
 // Variables globales (definidas en la plantilla)
-// Parámetros globales
 var currentPage, searchQuery, lastPostDate = null, type, lblname1, nopage;
 
 // Obtener parámetro de búsqueda
@@ -18,41 +17,44 @@ function getSearchQuery() {
     return urlParams.get("q") || "";
 }
 
-// Función principal de paginación
+// Generar paginación
 function pagination(totalPosts) {
     let paginationHTML = "";
     let leftnum = Math.floor(pagesToShow / 2);
     let maximum = Math.ceil(totalPosts / itemsPerPage);
 
-    // Solo generar numeración si currentPage >= 2
-    if(currentPage >= 2){
-        if (currentPage > 1) paginationHTML += createPageLink(currentPage - 1, prevpage);
+    // Ocultar numeración en la primera página
+    if (currentPage === 1) return;
 
-        let start = Math.max(currentPage - leftnum, 1);
-        let end = Math.min(start + pagesToShow - 1, maximum);
+    paginationHTML += `<span class='totalpages'>Hoja ${currentPage} de ${maximum}</span>`;
 
-        if (start > 1) paginationHTML += createPageLink(1, "1");
-        if (start > 2) paginationHTML += "...";
+    if (currentPage > 1) {
+        paginationHTML += createPageLink(currentPage - 1, prevpage);
+    }
 
-        for (let r = start; r <= end; r++) {
-            paginationHTML += r === currentPage 
-                ? `<span class="pagenumber current">${r}</span>` 
-                : createPageLink(r, r);
-        }
+    let start = Math.max(currentPage - leftnum, 1);
+    let end = Math.min(start + pagesToShow - 1, maximum);
 
-        if (end < maximum - 1) paginationHTML += "...";
-        if (end < maximum) paginationHTML += createPageLink(maximum, maximum);
+    if (start > 1) paginationHTML += createPageLink(1, "1");
+    if (start > 2) paginationHTML += "...";
 
-        if (currentPage < maximum) paginationHTML += createPageLink(currentPage + 1, nextpage);
+    for (let r = start; r <= end; r++) {
+        paginationHTML += r === currentPage
+            ? `<span class="pagenumber current">${r}</span>`
+            : createPageLink(r, r);
+    }
 
-        // Insertar numeración en tu div
-        let numeracionDiv = document.getElementById("numeracion-paginacion");
-        if(numeracionDiv) numeracionDiv.innerHTML = paginationHTML;
+    if (end < maximum - 1) paginationHTML += "...";
+    if (end < maximum) paginationHTML += createPageLink(maximum, maximum);
 
-    } else {
-        // Limpiar numeración en página 1
-        let numeracionDiv = document.getElementById("numeracion-paginacion");
-        if(numeracionDiv) numeracionDiv.innerHTML = "";
+    if (currentPage < maximum) {
+        paginationHTML += createPageLink(currentPage + 1, nextpage);
+    }
+
+    // Insertar en contenedor personalizado
+    let numeracion = document.getElementById("numeracion-paginacion");
+    if (numeracion) {
+        numeracion.innerHTML = paginationHTML;
     }
 }
 
@@ -62,7 +64,7 @@ function createPageLink(pageNum, linkText) {
         return `<span class="pagenumber"><a href="#" onclick="redirectpage(${pageNum}); return false;">${linkText}</a></span>`;
     } else if (type === "label") {
         return `<span class="pagenumber"><a href="#" onclick="redirectlabel(${pageNum}); return false;">${linkText}</a></span>`;
-    } else { // search
+    } else {
         let searchParam = searchQuery ? `q=${encodeURIComponent(searchQuery)}` : "";
         let startIndex = (pageNum - 1) * itemsPerPage;
         let url = `${window.location.origin}/search?${searchParam}&updated-max=${encodeURIComponent(lastPostDate || new Date().toISOString())}&max-results=${itemsPerPage}&start=${startIndex}&by-date=false#PageNo=${pageNum}`;
@@ -70,48 +72,53 @@ function createPageLink(pageNum, linkText) {
     }
 }
 
-// Manejar la paginación del feed
+// Procesar feed JSON
 function paginationall(data) {
     let totalResults = parseInt(data.feed.openSearch$totalResults.$t, 10);
-    if (isNaN(totalResults) || totalResults <= 0) totalResults = itemsPerPage;
-
-    if (data.feed.entry && data.feed.entry.length > 0) lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
-    else if (!lastPostDate) lastPostDate = new Date().toISOString();
-
+    if (isNaN(totalResults) || totalResults <= 0) {
+        totalResults = itemsPerPage;
+    }
+    if (data.feed.entry && data.feed.entry.length > 0) {
+        lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
+    } else if (!lastPostDate) {
+        lastPostDate = new Date().toISOString();
+    }
     pagination(totalResults);
 }
 
-// Redirigir a página
+// Redirección por número de página
 function redirectpage(pageNum) {
     if (pageNum === 1) {
         location.href = home_page;
         return;
     }
+
     jsonstart = (pageNum - 1) * itemsPerPage;
     nopage = pageNum;
 
     let script = document.createElement("script");
     script.type = "text/javascript";
     script.src = `${home_page}feeds/posts/summary?start-index=${jsonstart}&max-results=1&alt=json-in-script&callback=finddatepost`;
-    document.getElementsByTagName("head")[0].appendChild(script);
+    document.head.appendChild(script);
 }
 
-// Redirigir a etiqueta
+// Redirección por etiqueta
 function redirectlabel(pageNum) {
     if (pageNum === 1) {
         location.href = `${window.location.origin}/search/label/${lblname1}?max-results=${itemsPerPage}#PageNo=1`;
         return;
     }
+
     jsonstart = (pageNum - 1) * itemsPerPage;
     nopage = pageNum;
 
     let script = document.createElement("script");
     script.type = "text/javascript";
     script.src = `${home_page}feeds/posts/summary/-/${lblname1}?start-index=${jsonstart}&max-results=1&alt=json-in-script&callback=finddatepost`;
-    document.getElementsByTagName("head")[0].appendChild(script);
+    document.head.appendChild(script);
 }
 
-// Redirigir con fecha
+// Redirección con fecha
 function finddatepost(data) {
     let post = data.feed.entry[0];
     let dateStr = post.published.$t.substring(0, 19) + post.published.$t.substring(23, 29);
@@ -124,7 +131,7 @@ function finddatepost(data) {
     location.href = redirectUrl;
 }
 
-// Determinar tipo de página y cargar datos
+// Detectar tipo de página y cargar feed
 function bloggerpage() {
     searchQuery = getSearchQuery();
     let activePage = urlactivepage;
@@ -132,11 +139,14 @@ function bloggerpage() {
     if (activePage.includes("/search/label/")) {
         type = "label";
         lblname1 = activePage.split("/search/label/")[1].split("?")[0];
-    } else if (searchQuery) type = "search";
-    else type = "page";
+    } else if (searchQuery) {
+        type = "search";
+    } else {
+        type = "page";
+    }
 
-    currentPage = activePage.includes("#PageNo=") 
-        ? parseInt(activePage.split("#PageNo=")[1], 10) 
+    currentPage = activePage.includes("#PageNo=")
+        ? parseInt(activePage.split("#PageNo=")[1], 10)
         : 1;
 
     let scriptUrl;
@@ -158,13 +168,16 @@ function bloggerpage() {
 // Ajustar enlaces de etiquetas
 document.addEventListener("DOMContentLoaded", function () {
     bloggerpage();
+
     let labelLinks = document.querySelectorAll('a[href*="/search/label/"]');
     labelLinks.forEach(function (link) {
-        if (!link.href.includes("?&max-results=")) link.href += `?&max-results=${itemsPerPage}`;
+        if (!link.href.includes("?&max-results=")) {
+            link.href += `?&max-results=${itemsPerPage}`;
+        }
     });
 });
 
-// Añadir max-results a búsqueda
+// Redirección de búsqueda con max-results
 function addMaxResults(event) {
     event.preventDefault();
     var query = document.querySelector('input[name="q"]').value;
