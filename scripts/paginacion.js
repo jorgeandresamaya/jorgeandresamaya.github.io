@@ -8,17 +8,12 @@
  *              oculta en la primera página, sin reemplazar #blog-pager ni duplicar elementos.
  */
 
-// Variables internas del script
 var currentPage, searchQuery, lastPostDate = null, type, lblname1, nopage;
 var isPaginationRendered = false;
-var itemsPerPage = 10; // Ajustar según tu configuración
-var pagesToShow = 5; // Números visibles
-var home_page = window.location.origin + "/"; // Ajusta si es necesario
+var itemsPerPage = 10; 
+var pagesToShow = 5; 
+var home_page = window.location.origin + "/";
 var prevpage = "« Anterior", nextpage = "Siguiente »";
-
-// =============================================================================
-// FUNCIONES AUXILIARES
-// =============================================================================
 
 function getSearchQuery() {
     let urlParams = new URLSearchParams(window.location.search);
@@ -31,7 +26,7 @@ function createPageLink(pageNum, linkText) {
         return `<span class="pagenumber"><a href="#" onclick="redirectpage(${pageNum}); return false;">${linkText}</a></span>`;
     } else if (type === "label") {
         return `<span class="pagenumber"><a href="#" onclick="redirectlabel(${pageNum}); return false;">${linkText}</a></span>`;
-    } else { // search
+    } else {
         let searchParam = searchQuery ? `q=${encodeURIComponent(searchQuery)}` : "";
         let startIndex = (pageNum - 1) * itemsPerPage;
         url = `${home_page}search?${searchParam}&updated-max=${encodeURIComponent(lastPostDate || new Date().toISOString())}&max-results=${itemsPerPage}&start=${startIndex}&by-date=false#PageNo=${pageNum}`;
@@ -39,15 +34,11 @@ function createPageLink(pageNum, linkText) {
     }
 }
 
-// =============================================================================
-// FUNCIONES PRINCIPALES DE PAGINACIÓN
-// =============================================================================
-
 function renderPagination(totalPosts) {
     if (isPaginationRendered) return;
 
     let maximum = Math.ceil(totalPosts / itemsPerPage);
-    if (maximum < 2) return; // No mostrar paginación si solo hay 1 página
+    if (maximum <= 1) return; 
 
     let paginationHTML = "";
     let half = Math.floor(pagesToShow / 2);
@@ -58,30 +49,24 @@ function renderPagination(totalPosts) {
     if (end > maximum) { start -= (end - maximum); end = maximum; }
     if (start < 1) start = 1;
 
-    // Botón "Anterior"
     if (currentPage > 1) paginationHTML += createPageLink(currentPage - 1, prevpage);
 
-    // Primer número y "..."
     if (start > 1) {
         paginationHTML += createPageLink(1, "1");
         if (start > 2) paginationHTML += "...";
     }
 
-    // Números intermedios
     for (let i = start; i <= end; i++) {
         paginationHTML += i === currentPage ? `<span class="pagenumber current">${i}</span>` : createPageLink(i, i);
     }
 
-    // Último número y "..."
     if (end < maximum) {
         if (end < maximum - 1) paginationHTML += "...";
         paginationHTML += createPageLink(maximum, maximum);
     }
 
-    // Botón "Siguiente"
     if (currentPage < maximum) paginationHTML += createPageLink(currentPage + 1, nextpage);
 
-    // Insertar paginación en #blog-pager
     let pagerElement = document.getElementById("blog-pager");
     if (pagerElement) {
         let wrapper = document.createElement("div");
@@ -95,25 +80,15 @@ function renderPagination(totalPosts) {
     isPaginationRendered = true;
 }
 
-// =============================================================================
-// CALLBACK FEED
-// =============================================================================
-
 function paginationall(data) {
     let totalResults = parseInt(data.feed.openSearch$totalResults.$t, 10);
     if (isNaN(totalResults) || totalResults <= 0) totalResults = itemsPerPage;
 
-    if (data.feed.entry && data.feed.entry.length > 0) {
-        lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
-    } else if (!lastPostDate) {
-        lastPostDate = new Date().toISOString();
-    }
+    if (data.feed.entry && data.feed.entry.length > 0) lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
+    else if (!lastPostDate) lastPostDate = new Date().toISOString();
+
     renderPagination(totalResults);
 }
-
-// =============================================================================
-// REDIRECCIONES
-// =============================================================================
 
 function redirectpage(pageNum) {
     if (pageNum === 1) { location.href = home_page; return; }
@@ -150,10 +125,6 @@ function finddatepost(data) {
     location.href = redirectUrl;
 }
 
-// =============================================================================
-// INICIALIZACIÓN
-// =============================================================================
-
 function initializeBloggerPagination() {
     searchQuery = getSearchQuery();
     let activePage = window.location.href;
@@ -187,7 +158,6 @@ function initializeBloggerPagination() {
     script.onerror = () => console.error("Error al cargar el feed:", scriptUrl);
     document.body.appendChild(script);
 
-    // Ajustar enlaces de etiquetas
     document.querySelectorAll('a[href*="/search/label/"]').forEach(link => {
         if (!link.href.includes("?&max-results=") && !link.href.includes("&max-results=")) {
             link.href += `?&max-results=${itemsPerPage}`;
@@ -195,17 +165,14 @@ function initializeBloggerPagination() {
     });
 }
 
-// Debounce para ejecución única
 let debounceTimeout;
 const debounceInitialize = () => {
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => { initializeBloggerPagination(); }, 500);
 };
-
 document.addEventListener("DOMContentLoaded", debounceInitialize);
 window.addEventListener("load", debounceInitialize);
 
-// Función para formulario de búsqueda
 function addMaxResults(event) {
   event.preventDefault(); 
   let query = document.querySelector('input[name="q"]').value;
