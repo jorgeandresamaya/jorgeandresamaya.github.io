@@ -9,144 +9,51 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-(function(){
-  var itemsPerPage = 10;
-  var pagesToShow = 5;
-  var prevLabel = 'Artículos más recientes';
-  var nextLabel = 'Artículos anteriores';
-  var homePage = "/";
-  var currentPage, totalPages, searchQuery, type, labelName, lastPostDate;
+/** Paginación Descubre con Jorge Andrés Amaya - Copyright © 2025 (Licencia MIT) **/
+(function() {
+  // Configuración
+  var numeracionContainer = document.getElementById('numeracion-paginacion');
+  if (!numeracionContainer) return;
 
+  // Detecta la página actual y total de páginas
   function getCurrentPage() {
-    var match = location.href.match(/#PageNo=(\d+)/);
-    return match ? parseInt(match[1], 10) : 1;
-  }
-
-  function getSearchQueryParam() {
     var params = new URLSearchParams(window.location.search);
-    return params.get("q") || "";
+    return parseInt(params.get('max-results') || 1) || 1;
   }
 
-  function createPageLink(pageNum, text) {
-    var href = "#";
-    if(type === "page"){
-      href = homePage + "?updated-max=" + encodeURIComponent(lastPostDate || new Date().toISOString()) + 
-             "&max-results=" + itemsPerPage + "&start=" + ((pageNum-1)*itemsPerPage) + "#PageNo=" + pageNum;
-    } else if(type === "label"){
-      href = homePage + "search/label/" + encodeURIComponent(labelName) + "?updated-max=" + encodeURIComponent(lastPostDate || new Date().toISOString()) +
-             "&max-results=" + itemsPerPage + "&start=" + ((pageNum-1)*itemsPerPage) + "#PageNo=" + pageNum;
-    } else if(type === "search"){
-      href = homePage + "search?q=" + encodeURIComponent(searchQuery) + "&updated-max=" + encodeURIComponent(lastPostDate || new Date().toISOString()) + 
-             "&max-results=" + itemsPerPage + "&start=" + ((pageNum-1)*itemsPerPage) + "#PageNo=" + pageNum;
-    }
-    return `<a href="${href}">${text}</a>`;
+  function getTotalPages() {
+    var totalPosts = parseInt(document.querySelectorAll('.post').length);
+    return Math.ceil(totalPosts / 10) || 1;
   }
 
-  function buildPagination(){
-    totalPages = Math.max(totalPages, 1);
-    var half = Math.floor(pagesToShow / 2);
-    var start, end;
+  function createPageLink(pageNum, isActive) {
+    var a = document.createElement('a');
+    a.href = '?updated-max=' + pageNum; // Enlace básico, Blogger se ajustará automáticamente
+    a.textContent = pageNum;
+    if (isActive) a.style.fontWeight = 'bold';
+    return a;
+  }
 
-    if(totalPages <= pagesToShow){
-      start = 1;
-      end = totalPages;
-    } else if(currentPage <= half + 1) {
-      start = 1;
-      end = pagesToShow;
-    } else if(currentPage >= totalPages - half){
-      start = totalPages - pagesToShow + 1;
-      end = totalPages;
-    } else {
-      start = currentPage - half;
-      end = currentPage + half;
+  function renderPagination() {
+    var currentPage = getCurrentPage();
+    var totalPages = getTotalPages();
+
+    if (totalPages <= 1 || currentPage === 1) return; // Solo a partir de la segunda página
+
+    numeracionContainer.innerHTML = ''; // Limpiar contenedor
+
+    var pagesToShow = 5;
+    var startPage = Math.max(currentPage - 2, 1);
+    var endPage = Math.min(startPage + pagesToShow - 1, totalPages);
+
+    if (endPage - startPage < pagesToShow - 1) {
+      startPage = Math.max(endPage - pagesToShow + 1, 1);
     }
 
-    var pager = document.getElementById("blog-pager");
-    var numbersContainer = document.getElementById("numeracion-paginacion");
-    if(!pager || !numbersContainer) return;
-
-    var prevHTML = currentPage > 1 ? `<a class="blog-pager-newer-link" href="#" onclick="redirectPage(${currentPage-1}); return false;">${prevLabel}</a>` : "";
-    var nextHTML = currentPage < totalPages ? `<a class="blog-pager-older-link" href="#" onclick="redirectPage(${currentPage+1}); return false;">${nextLabel}</a>` : "";
-
-    pager.innerHTML = prevHTML + nextHTML;
-
-    if(currentPage > 1){
-      var numberHTML = "";
-      if(start > 1){
-        numberHTML += `<span class="pagenumber">${createPageLink(1, '1')}</span>`;
-        if(start > 2) numberHTML += `<span class="dots">...</span>`;
-      }
-      for(let i = start; i <= end; i++){
-        if(i === currentPage){
-          numberHTML += `<span class="pagenumber current">${i}</span>`;
-        } else {
-          numberHTML += `<span class="pagenumber">${createPageLink(i, i)}</span>`;
-        }
-      }
-      if(end < totalPages){
-        if(end < totalPages -1) numberHTML += `<span class="dots">...</span>`;
-        numberHTML += `<span class="pagenumber">${createPageLink(totalPages, totalPages)}</span>`;
-      }
-      numbersContainer.innerHTML = numberHTML;
-    } else {
-      numbersContainer.innerHTML = "";
+    for (var i = startPage; i <= endPage; i++) {
+      numeracionContainer.appendChild(createPageLink(i, i === currentPage));
     }
   }
 
-  window.redirectPage = function(pageNum){
-    if(pageNum === 1){
-      window.location.href = homePage;
-      return;
-    }
-    var startIndex = (pageNum - 1) * itemsPerPage;
-    var url = homePage + "?updated-max=" + encodeURIComponent(lastPostDate || new Date().toISOString()) + 
-              "&max-results=" + itemsPerPage + "&start=" + startIndex + "#PageNo=" + pageNum;
-    window.location.href = url;
-  }
-
-  window.totalPostsCallback = function(data){
-    try {
-      var total = parseInt(data.feed.openSearch$totalResults.$t, 10);
-      if(isNaN(total) || total <= 0) total = itemsPerPage;
-      lastPostDate = data.feed.entry && data.feed.entry.length ? data.feed.entry[data.feed.entry.length-1].updated.$t : new Date().toISOString();
-      totalPages = Math.ceil(total / itemsPerPage);
-      buildPagination();
-    } catch(e){
-      totalPages = 1;
-      buildPagination();
-    }
-  }
-
-  function fetchTotalPosts(){
-    let feedURL = '';
-    if(type === "search"){
-      feedURL = `${homePage}feeds/posts/summary?q=${encodeURIComponent(searchQuery)}&max-results=1&alt=json-in-script&callback=totalPostsCallback`;
-    } else if(type === "label"){
-      feedURL = `${homePage}feeds/posts/summary/-/${encodeURIComponent(labelName)}?max-results=1&alt=json-in-script&callback=totalPostsCallback`;
-    } else {
-      feedURL = `${homePage}feeds/posts/summary?max-results=1&alt=json-in-script&callback=totalPostsCallback`;
-    }
-    var script = document.createElement("script");
-    script.src = feedURL;
-    document.body.appendChild(script);
-  }
-
-  function initialize(){
-    currentPage = getCurrentPage();
-    searchQuery = getSearchQueryParam();
-    var url = window.location.href;
-
-    if(/\/search\/label\//.test(url)) {
-      type = "label";
-      var match = url.match(/\/search\/label\/([^?&#]+)/);
-      labelName = match ? decodeURIComponent(match[1]) : "";
-    } else if(searchQuery !== "") {
-      type = "search";
-    } else {
-      type = "page";
-    }
-    fetchTotalPosts();
-  }
-
-  document.addEventListener("DOMContentLoaded", initialize);
+  document.addEventListener('DOMContentLoaded', renderPagination);
 })();
