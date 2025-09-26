@@ -11,84 +11,45 @@
 // Parámetros globales (estas variables se definirán en la plantilla)
 var currentPage, searchQuery, lastPostDate = null, type, lblname1, nopage;
 
-// Configuración de paginación
-var itemsPerPage = 10; 
-var pagesToShow = 5; 
-var prevpage = 'Artículos más recientes'; 
-var nextpage = 'Artículos anteriores'; 
-var urlactivepage = location.href; 
-var home_page = "/";
-
-// Obtener el parámetro de búsqueda
 function getSearchQuery() {
     let urlParams = new URLSearchParams(window.location.search);
     return urlParams.get("q") || "";
 }
 
-// Función principal de paginación
 function pagination(totalPosts) {
     let paginationHTML = "";
-    let maximum = Math.ceil(totalPosts / itemsPerPage);
     let leftnum = Math.floor(pagesToShow / 2);
+    let maximum = Math.ceil(totalPosts / itemsPerPage);
 
-    // Solo mostrar numeración a partir de la segunda página
-    if (maximum <= 1) return;
+    if (currentPage === 1) return; // No mostrar numeración en la primera página
 
-    // Enlace "Anterior"
-    if (currentPage > 1) {
-        paginationHTML += createPageLink(currentPage - 1, prevpage);
-    }
-
-    // Determinar rango de números a mostrar
-    let start = Math.max(currentPage - leftnum, 1);
+    let start = Math.max(currentPage - leftnum, 2);
     let end = Math.min(start + pagesToShow - 1, maximum);
 
-    // Ajuste si se alcanza el final
-    if (end - start + 1 < pagesToShow) {
-        start = Math.max(end - pagesToShow + 1, 1);
-    }
-
-    // Primer número y puntos suspensivos si es necesario
-    if (start > 1) {
+    if (start > 2) {
         paginationHTML += createPageLink(1, "1");
-        if (start > 2) paginationHTML += "<span class='dots'>...</span>";
+        if (start > 3) paginationHTML += `<span class="pagenumber">...</span>`;
     }
 
-    // Números de página visibles
     for (let r = start; r <= end; r++) {
         paginationHTML += r === currentPage
-            ? `<span class="pagenumber current">${r}</span>` 
+            ? `<span class="pagenumber current">${r}</span>`
             : createPageLink(r, r);
     }
 
-    // Último número y puntos suspensivos si es necesario
-    if (end < maximum) {
-        if (end < maximum - 1) paginationHTML += "<span class='dots'>...</span>";
-        paginationHTML += createPageLink(maximum, maximum);
-    }
+    if (end < maximum - 1) paginationHTML += `<span class="pagenumber">...</span>`;
+    if (end < maximum) paginationHTML += createPageLink(maximum, maximum);
 
-    // Enlace "Siguiente"
-    if (currentPage < maximum) {
-        paginationHTML += createPageLink(currentPage + 1, nextpage);
-    }
-
-    // Insertar HTML en la paginación
-    let pageArea = document.getElementsByName("pageArea");
-    let pagerElement = document.getElementById("blog-pager");
-
-    for (let i = 0; i < pageArea.length; i++) {
-        pageArea[i].innerHTML = paginationHTML;
-    }
-    if (pagerElement) pagerElement.innerHTML = paginationHTML;
+    let numeracion = document.getElementById("numeracion-paginacion");
+    if (numeracion) numeracion.innerHTML = `<div class="pagenav">${paginationHTML}</div>`;
 }
 
-// Crear enlace de página
 function createPageLink(pageNum, linkText) {
     if (type === "page") {
         return `<span class="pagenumber"><a href="#" onclick="redirectpage(${pageNum}); return false;">${linkText}</a></span>`;
     } else if (type === "label") {
         return `<span class="pagenumber"><a href="#" onclick="redirectlabel(${pageNum}); return false;">${linkText}</a></span>`;
-    } else { // type === "search"
+    } else {
         let searchParam = searchQuery ? `q=${encodeURIComponent(searchQuery)}` : "";
         let startIndex = (pageNum - 1) * itemsPerPage;
         let url = `${window.location.origin}/search?${searchParam}&updated-max=${encodeURIComponent(lastPostDate || new Date().toISOString())}&max-results=${itemsPerPage}&start=${startIndex}&by-date=false#PageNo=${pageNum}`;
@@ -96,11 +57,10 @@ function createPageLink(pageNum, linkText) {
     }
 }
 
-// Manejar la paginación del feed
 function paginationall(data) {
     let totalResults = parseInt(data.feed.openSearch$totalResults.$t, 10);
     if (isNaN(totalResults) || totalResults <= 0) {
-        totalResults = itemsPerPage; // Fallback si no hay resultados válidos
+        totalResults = itemsPerPage;
     }
     if (data.feed.entry && data.feed.entry.length > 0) {
         lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
@@ -110,7 +70,6 @@ function paginationall(data) {
     pagination(totalResults);
 }
 
-// Redirigir a página
 function redirectpage(pageNum) {
     if (pageNum === 1) {
         location.href = home_page;
@@ -126,7 +85,6 @@ function redirectpage(pageNum) {
     document.getElementsByTagName("head")[0].appendChild(script);
 }
 
-// Redirigir a etiqueta
 function redirectlabel(pageNum) {
     if (pageNum === 1) {
         location.href = `${window.location.origin}/search/label/${lblname1}?max-results=${itemsPerPage}#PageNo=1`;
@@ -142,7 +100,6 @@ function redirectlabel(pageNum) {
     document.getElementsByTagName("head")[0].appendChild(script);
 }
 
-// Manejar redirección con fecha
 function finddatepost(data) {
     let post = data.feed.entry[0];
     let dateStr = post.published.$t.substring(0, 19) + post.published.$t.substring(23, 29);
@@ -155,7 +112,6 @@ function finddatepost(data) {
     location.href = redirectUrl;
 }
 
-// Determinar tipo de página y cargar datos
 function bloggerpage() {
     searchQuery = getSearchQuery();
     let activePage = urlactivepage;
@@ -189,7 +145,6 @@ function bloggerpage() {
     document.body.appendChild(script);
 }
 
-// Ajustar enlaces de etiquetas
 document.addEventListener("DOMContentLoaded", function () {
     bloggerpage();
 
@@ -202,9 +157,9 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function addMaxResults(event) {
-    event.preventDefault();
-    var query = document.querySelector('input[name="q"]').value;
-    var baseUrl = (typeof searchBaseUrl !== 'undefined' ? searchBaseUrl : (home_page + 'search'));
-    var searchUrl = baseUrl + "?q=" + encodeURIComponent(query) + "&max-results=" + itemsPerPage;
-    window.location.href = searchUrl;
+  event.preventDefault();
+  var query = document.querySelector('input[name="q"]').value;
+  var baseUrl = (typeof searchBaseUrl !== 'undefined' ? searchBaseUrl : (home_page + 'search'));
+  var searchUrl = baseUrl + "?q=" + encodeURIComponent(query) + "&max-results=" + itemsPerPage;
+  window.location.href = searchUrl;
 }
