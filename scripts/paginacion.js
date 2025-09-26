@@ -12,7 +12,7 @@
 // Parámetros globales
 var currentPage, searchQuery, lastPostDate = null, type, lblname1, nopage;
 
-// Configuraciones
+// Configuración paginación
 var itemsPerPage = 10; 
 var pagesToShow = 5; 
 var prevpage = 'Artículos más recientes'; 
@@ -26,7 +26,7 @@ function getSearchQuery() {
     return urlParams.get("q") || "";
 }
 
-// Función para crear el enlace de página
+// Crear enlace de página
 function createPageLink(pageNum, linkText) {
     if (type === "page") {
         return `<a href="#" onclick="redirectpage(${pageNum}); return false;">${linkText}</a>`;
@@ -40,7 +40,7 @@ function createPageLink(pageNum, linkText) {
     }
 }
 
-// Función principal para insertar la paginación
+// Función principal de paginación adaptada
 function pagination(totalPosts) {
     let maxPages = Math.ceil(totalPosts / itemsPerPage);
     let half = Math.floor(pagesToShow / 2);
@@ -62,15 +62,16 @@ function pagination(totalPosts) {
         end = currentPage + half;
     }
 
-    // Construir botones anterior y siguiente
+    // Botón anterior (más recientes)
     let prevHTML = "";
     if (currentPage > 1) {
-        prevHTML = `<span class="pagenumber prev">${createPageLink(currentPage - 1, prevpage)}</span>`;
+        prevHTML = `<span class="blog-pager-newer-link">${createPageLink(currentPage - 1, prevpage)}</span>`;
     }
 
+    // Botón siguiente (anteriores)
     let nextHTML = "";
     if (currentPage < maxPages) {
-        nextHTML = `<span class="pagenumber next">${createPageLink(currentPage + 1, nextpage)}</span>`;
+        nextHTML = `<span class="blog-pager-older-link">${createPageLink(currentPage + 1, nextpage)}</span>`;
     }
 
     // Construir numeración de páginas
@@ -98,32 +99,29 @@ function pagination(totalPosts) {
         numbersHTML += `<span class="pagenumber">${createPageLink(maxPages, maxPages)}</span>`;
     }
 
-    // Insertar paginación en contenedores adecuados
+    // Insertar paginación en los contenedores
     let pagerElement = document.getElementById("blog-pager");
     let numberContainer = document.getElementById("numeracion-paginacion");
 
     if (pagerElement && numberContainer) {
-        // Botón anterior a la izquierda
-        pagerElement.querySelector(".blog-pager-newer-link").style.display = currentPage > 1 ? "inline-block" : "none";
-        // Botón siguiente a la derecha
-        pagerElement.querySelector(".blog-pager-older-link").style.display = currentPage < maxPages ? "inline-block" : "none";
+        // Insertar los botones anterior y siguiente en el blog-pager
+        pagerElement.innerHTML = prevHTML + nextHTML;
 
-        // Poner el HTML para los botones en #blog-pager
-        pagerElement.innerHTML = prevHTML + ' <div id="numeracion-paginacion" style="display:inline-block;"></div> ' + nextHTML;
-
-        // Insertar la numeración centrada en su contenedor dentro de #blog-pager
-        let newNumberContainer = document.getElementById("numeracion-paginacion");
-        if (newNumberContainer) {
-            newNumberContainer.innerHTML = numbersHTML;
+        // Insertar la numeración en el contenedor numeracion-paginacion (centrado)
+        if (currentPage > 1) {
+            numberContainer.innerHTML = numbersHTML;
+        } else {
+            // En la página 1 no mostrar numeración, sólo limpia el contenedor
+            numberContainer.innerHTML = "";
         }
     }
 }
 
-// Otros métodos de paginación y redirección siguen igual
+// Resto funciones sin cambios (paginationall, redirectpage, redirectlabel, finddatepost, bloggerpage)
 function paginationall(data) {
     let totalResults = parseInt(data.feed.openSearch$totalResults.$t, 10);
     if (isNaN(totalResults) || totalResults <= 0) {
-        totalResults = itemsPerPage; // Fallback si no hay resultados válidos
+        totalResults = itemsPerPage;
     }
     if (data.feed.entry && data.feed.entry.length > 0) {
         lastPostDate = data.feed.entry[data.feed.entry.length - 1].updated.$t;
@@ -202,6 +200,7 @@ function bloggerpage() {
     document.body.appendChild(script);
 }
 
+// Ajustar parámetros adicionales
 document.addEventListener("DOMContentLoaded", function () {
     bloggerpage();
 
