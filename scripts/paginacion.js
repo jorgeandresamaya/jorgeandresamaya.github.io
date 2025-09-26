@@ -11,81 +11,96 @@
 // Parámetros globales (estas variables se definirán en la plantilla)
 var currentPage, searchQuery, lastPostDate = null, type, lblname1, nopage;
 
+// Número de entradas por página y cantidad visible de páginas
+var itemsPerPage = 10; 
+var pagesToShow = 5; 
+var prevpage = 'Artículos más recientes'; 
+var nextpage = 'Artículos anteriores'; 
+var urlactivepage = location.href; 
+var home_page = "/";
+
 // Obtener el parámetro de búsqueda
 function getSearchQuery() {
     let urlParams = new URLSearchParams(window.location.search);
     return urlParams.get("q") || "";
 }
 
-// Función principal de paginación
+// Función principal de paginación adaptada
 function pagination(totalPosts) {
-    let maximum = Math.ceil(totalPosts / itemsPerPage);
-    
-    // Generar numeración solo si hay más de 1 página y estamos desde la página 2
-    let numeracionHTML = "";
-    if (maximum > 1 && currentPage >= 2) {
-        numeracionHTML = generatePageNumbers(maximum);
-    }
-    
-    // Insertar numeración en el contenedor específico
-    let numeracionContainer = document.getElementById("numeracion-paginacion");
-    if (numeracionContainer) {
-        numeracionContainer.innerHTML = numeracionHTML;
-    }
-    
-    // Mantener compatibilidad con código existente
-    let pageArea = document.getElementsByName("pageArea");
-    for (let i = 0; i < pageArea.length; i++) {
-        pageArea[i].innerHTML = numeracionHTML;
-    }
-}
+    let paginationHTML = "";
+    let maxPages = Math.ceil(totalPosts / itemsPerPage);
+    let half = Math.floor(pagesToShow / 2);
+    let start, end;
 
-// Generar números de páginas (máximo 5 números incluyendo actual y final)
-function generatePageNumbers(maximum) {
-    let html = "";
-    let pages = [];
-    
-    // Asegurar que siempre incluimos la página final
-    if (maximum <= 5) {
-        // Si hay 5 o menos páginas, mostrar todas
-        for (let i = 1; i <= maximum; i++) {
-            pages.push(i);
-        }
+    if (currentPage > maxPages) currentPage = maxPages;
+
+    // Calcular los límites de páginas a mostrar para centrar la numeración
+    if (maxPages <= pagesToShow) {
+        start = 1;
+        end = maxPages;
+    } else if (currentPage - half <= 1) {
+        start = 1;
+        end = pagesToShow;
+    } else if (currentPage + half >= maxPages) {
+        start = maxPages - pagesToShow + 1;
+        end = maxPages;
     } else {
-        // Para más de 5 páginas, mostrar 5 números incluyendo el final
-        if (currentPage <= 2) {
-            // Inicio: 1,2,3,4,final
-            pages = [1, 2, 3, 4, maximum];
-        } else if (currentPage >= maximum - 1) {
-            // Final: 1,final-3,final-2,final-1,final
-            pages = [1, maximum - 3, maximum - 2, maximum - 1, maximum];
-        } else if (currentPage === 3) {
-            // Caso especial página 3: 1,2,3,4,final
-            pages = [1, 2, 3, 4, maximum];
-        } else if (currentPage === maximum - 2) {
-            // Caso especial antepenúltima: 1,final-3,final-2,final-1,final
-            pages = [1, maximum - 3, maximum - 2, maximum - 1, maximum];
-        } else {
-            // Medio: 1,actual-1,actual,actual+1,final
-            pages = [1, currentPage - 1, currentPage, currentPage + 1, maximum];
+        start = currentPage - half;
+        end = currentPage + half;
+    }
+
+    // Crear botón Anterior si no está en la primera página
+    if (currentPage > 1) {
+        paginationHTML += createPageLink(currentPage - 1, prevpage);
+    }
+
+    // Mostrar primera página y puntos suspensivos si corresponde
+    if (start > 1) {
+        paginationHTML += createPageLink(1, "1");
+        if (start > 2) {
+            paginationHTML += `<span class="dots">...</span>`;
         }
     }
-    
-    // Generar HTML para los números
-    pages.forEach((pageNum, index) => {
-        if (pageNum === currentPage) {
-            html += `<span class="pagenumber current">${pageNum}</span>`;
+
+    // Mostrar rango de páginas centrado
+    for (let i = start; i <= end; i++) {
+        if (i === currentPage) {
+            paginationHTML += `<span class="pagenumber current">${i}</span>`;
         } else {
-            html += createPageLink(pageNum, pageNum);
+            paginationHTML += createPageLink(i, i);
         }
-        
-        // No agregar espacio después del último elemento
-        if (index < pages.length - 1) {
-            html += " ";
+    }
+
+    // Mostrar puntos suspensivos y última página si corresponde
+    if (end < maxPages) {
+        if (end < maxPages - 1) {
+            paginationHTML += `<span class="dots">...</span>`;
         }
-    });
-    
-    return html;
+        paginationHTML += createPageLink(maxPages, maxPages);
+    }
+
+    // Crear botón Siguiente si no está en la última página
+    if (currentPage < maxPages) {
+        paginationHTML += createPageLink(currentPage + 1, nextpage);
+    }
+
+    // Insertar la paginación centrada solo a partir de la segunda página
+    let pagerElement = document.getElementById("blog-pager");
+    if (pagerElement) {
+        if (currentPage > 1) {
+            pagerElement.innerHTML = paginationHTML;
+        } else {
+            // Página 1 solo muestra botones sin numeración centrada
+            let firstPageHTML = "";
+            if (currentPage > 1) {
+                firstPageHTML += createPageLink(currentPage - 1, prevpage);
+            }
+            if (currentPage < maxPages) {
+                firstPageHTML += createPageLink(currentPage + 1, nextpage);
+            }
+            pagerElement.innerHTML = firstPageHTML;
+        }
+    }
 }
 
 // Crear enlace de página
