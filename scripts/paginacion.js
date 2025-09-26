@@ -43,13 +43,11 @@ function renderPagination(totalPosts) {
 
     let paginationHTML = "";
     let maximum = Math.ceil(totalPosts / itemsPerPage);
-    let pagesToShow = 5; // Máximo números visibles
+    let pagesToShow = 5;
     let half = Math.floor(pagesToShow / 2);
 
-    // Solo mostrar paginación si hay más de 1 página y no estamos en home con currentPage=1
-    if (maximum > 1 && !(type === "page" && currentPage === 1)) {
-
-        // Mostrar "Hoja X de Y" solo si no estamos en home
+    if (maximum > 1) {
+        // Mostrar "Hoja X de Y" solo si NO estamos en home (currentPage=1 de tipo page)
         if (!(type === "page" && currentPage === 1)) {
             paginationHTML += `<span class='totalpages'>Hoja ${currentPage} de ${maximum}</span>`;
         }
@@ -57,11 +55,11 @@ function renderPagination(totalPosts) {
         // Botón "Anterior"
         if (currentPage > 1) paginationHTML += createPageLink(currentPage - 1, prevpage);
 
-        // Determinar rango de números
+        // Calcular rango de números
         let start = Math.max(currentPage - half, 1);
         let end = Math.min(currentPage + half, maximum);
 
-        // Ajuste si hay menos de pagesToShow números
+        // Ajustar si quedan menos de pagesToShow números
         if (end - start + 1 < pagesToShow) {
             if (start === 1) end = Math.min(start + pagesToShow - 1, maximum);
             else if (end === maximum) start = Math.max(end - pagesToShow + 1, 1);
@@ -90,6 +88,7 @@ function renderPagination(totalPosts) {
         if (currentPage < maximum) paginationHTML += createPageLink(currentPage + 1, nextpage);
     }
 
+    // Insertar en el DOM
     let pagerElement = document.getElementById("blog-pager");
     if (pagerElement) {
         let prevButton = pagerElement.querySelector(".blog-pager-older-link");
@@ -109,6 +108,7 @@ function renderPagination(totalPosts) {
             if (existingWrapper) existingWrapper.remove();
         }
     }
+
     isPaginationRendered = true;
 }
 
@@ -191,8 +191,8 @@ function initializeBloggerPagination() {
     script.onerror = () => console.error("Error al cargar el feed:", scriptUrl);
     document.body.appendChild(script);
 
-    let labelLinks = document.querySelectorAll('a[href*="/search/label/"]');
-    labelLinks.forEach(function (link) {
+    // Ajustar enlaces de etiquetas
+    document.querySelectorAll('a[href*="/search/label/"]').forEach(function (link) {
         if (!link.href.includes("?&max-results=") && !link.href.includes("&max-results=")) {
             link.href += `?&max-results=${itemsPerPage}`;
         }
@@ -208,6 +208,7 @@ const debounceInitialize = () => {
 document.addEventListener("DOMContentLoaded", debounceInitialize);
 window.addEventListener("load", debounceInitialize);
 
+// Función para el formulario de búsqueda
 function addMaxResults(event) {
   event.preventDefault(); 
   var query = document.querySelector('input[name="q"]').value;
