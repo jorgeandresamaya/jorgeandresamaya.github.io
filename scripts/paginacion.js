@@ -23,11 +23,13 @@ function pagination(totalPosts) {
     let leftnum = Math.floor(pagesToShow / 2);
     let maximum = Math.ceil(totalPosts / itemsPerPage);
 
+    // Detectar contenedor personalizado
     let numeracion = document.getElementById("numeracion-paginacion");
     if (!numeracion) return;
 
+    // Ocultar numeración en la primera página
     if (typeof currentPage !== "number" || currentPage < 2) {
-        numeracion.innerHTML = ""; // Ocultar en Home
+        numeracion.innerHTML = "";
         return;
     }
 
@@ -56,6 +58,7 @@ function pagination(totalPosts) {
         paginationHTML += createPageLink(currentPage + 1, nextpage);
     }
 
+    // Insertar en el contenedor personalizado
     numeracion.innerHTML = paginationHTML;
 }
 
