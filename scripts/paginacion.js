@@ -23,17 +23,10 @@ function pagination(totalPosts) {
     let leftnum = Math.floor(pagesToShow / 2);
     let maximum = Math.ceil(totalPosts / itemsPerPage);
 
-    // Detectar contenedor personalizado
-    let numeracion = document.getElementById("numeracion-paginacion");
-    if (!numeracion) return;
-
-    // Ocultar numeración en la primera página
-    if (typeof currentPage !== "number" || currentPage < 2) {
-        numeracion.innerHTML = "";
-        return;
+    // Solo mostrar numeración a partir de la página 2
+    if (currentPage > 1) {
+        paginationHTML += `<span class='totalpages'>Hoja ${currentPage} de ${maximum}</span>`;
     }
-
-    paginationHTML += `<span class='totalpages'>Hoja ${currentPage} de ${maximum}</span>`;
 
     if (currentPage > 1) {
         paginationHTML += createPageLink(currentPage - 1, prevpage);
@@ -42,24 +35,31 @@ function pagination(totalPosts) {
     let start = Math.max(currentPage - leftnum, 1);
     let end = Math.min(start + pagesToShow - 1, maximum);
 
-    if (start > 1) paginationHTML += createPageLink(1, "1");
-    if (start > 2) paginationHTML += "...";
+    if (currentPage > 1) { // Numeración solo desde página 2
+        if (start > 1) paginationHTML += createPageLink(1, "1");
+        if (start > 2) paginationHTML += "...";
 
-    for (let r = start; r <= end; r++) {
-        paginationHTML += r === currentPage 
-            ? `<span class="pagenumber current">${r}</span>` 
-            : createPageLink(r, r);
+        for (let r = start; r <= end; r++) {
+            paginationHTML += r === currentPage 
+                ? `<span class="pagenumber current">${r}</span>` 
+                : createPageLink(r, r);
+        }
+
+        if (end < maximum - 1) paginationHTML += "...";
+        if (end < maximum) paginationHTML += createPageLink(maximum, maximum);
     }
-
-    if (end < maximum - 1) paginationHTML += "...";
-    if (end < maximum) paginationHTML += createPageLink(maximum, maximum);
 
     if (currentPage < maximum) {
         paginationHTML += createPageLink(currentPage + 1, nextpage);
     }
 
-    // Insertar en el contenedor personalizado
-    numeracion.innerHTML = paginationHTML;
+    let pageArea = document.getElementsByName("pageArea");
+    let pagerElement = document.getElementById("blog-pager");
+
+    for (let i = 0; i < pageArea.length; i++) {
+        pageArea[i].innerHTML = paginationHTML;
+    }
+    if (pagerElement) pagerElement.innerHTML = paginationHTML;
 }
 
 // Crear enlace de página
@@ -103,7 +103,7 @@ function redirectpage(pageNum) {
     let script = document.createElement("script");
     script.type = "text/javascript";
     script.src = `${home_page}feeds/posts/summary?start-index=${jsonstart}&max-results=1&alt=json-in-script&callback=finddatepost`;
-    document.head.appendChild(script);
+    document.getElementsByTagName("head")[0].appendChild(script);
 }
 
 // Redirigir a etiqueta
@@ -119,7 +119,7 @@ function redirectlabel(pageNum) {
     let script = document.createElement("script");
     script.type = "text/javascript";
     script.src = `${home_page}feeds/posts/summary/-/${lblname1}?start-index=${jsonstart}&max-results=1&alt=json-in-script&callback=finddatepost`;
-    document.head.appendChild(script);
+    document.getElementsByTagName("head")[0].appendChild(script);
 }
 
 // Manejar redirección con fecha
@@ -182,9 +182,9 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function addMaxResults(event) {
-    event.preventDefault();
-    var query = document.querySelector('input[name="q"]').value;
-    var baseUrl = (typeof searchBaseUrl !== 'undefined' ? searchBaseUrl : (home_page + 'search'));
-    var searchUrl = baseUrl + "?q=" + encodeURIComponent(query) + "&max-results=" + itemsPerPage;
-    window.location.href = searchUrl;
+  event.preventDefault();
+  var query = document.querySelector('input[name="q"]').value;
+  var baseUrl = (typeof searchBaseUrl !== 'undefined' ? searchBaseUrl : (home_page + 'search'));
+  var searchUrl = baseUrl + "?q=" + encodeURIComponent(query) + "&max-results=" + itemsPerPage;
+  window.location.href = searchUrl;
 }
