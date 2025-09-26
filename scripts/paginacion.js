@@ -21,19 +21,22 @@ function getSearchQuery() {
 function pagination(totalPosts) {
     let maximum = Math.ceil(totalPosts / itemsPerPage);
     
-    // Solo mostrar numeración a partir de la página 2 y si hay más de 1 página
-    if (currentPage > 1 && maximum > 1) {
-        let numeracionHTML = generatePageNumbers(maximum);
-        let numeracionContainer = document.getElementById("numeracion-paginacion");
-        if (numeracionContainer) {
-            numeracionContainer.innerHTML = numeracionHTML;
-        }
-    } else {
-        // Limpiar el contenedor si estamos en página 1
-        let numeracionContainer = document.getElementById("numeracion-paginacion");
-        if (numeracionContainer) {
-            numeracionContainer.innerHTML = "";
-        }
+    // Generar numeración solo si hay más de 1 página y estamos desde la página 2
+    let numeracionHTML = "";
+    if (maximum > 1 && currentPage >= 2) {
+        numeracionHTML = generatePageNumbers(maximum);
+    }
+    
+    // Insertar numeración en el contenedor específico
+    let numeracionContainer = document.getElementById("numeracion-paginacion");
+    if (numeracionContainer) {
+        numeracionContainer.innerHTML = numeracionHTML;
+    }
+    
+    // Mantener compatibilidad con código existente
+    let pageArea = document.getElementsByName("pageArea");
+    for (let i = 0; i < pageArea.length; i++) {
+        pageArea[i].innerHTML = numeracionHTML;
     }
 }
 
@@ -42,36 +45,43 @@ function generatePageNumbers(maximum) {
     let html = "";
     let pages = [];
     
-    // Lógica para mostrar máximo 5 números
+    // Asegurar que siempre incluimos la página final
     if (maximum <= 5) {
         // Si hay 5 o menos páginas, mostrar todas
         for (let i = 1; i <= maximum; i++) {
             pages.push(i);
         }
     } else {
-        // Lógica más compleja para más de 5 páginas
-        if (currentPage <= 3) {
-            // Si estamos en las primeras páginas: 1,2,3,4,5
-            pages = [1, 2, 3, 4, 5];
-        } else if (currentPage >= maximum - 2) {
-            // Si estamos en las últimas páginas: mostrar las últimas 5
-            for (let i = maximum - 4; i <= maximum; i++) {
-                pages.push(i);
-            }
+        // Para más de 5 páginas, mostrar 5 números incluyendo el final
+        if (currentPage <= 2) {
+            // Inicio: 1,2,3,4,final
+            pages = [1, 2, 3, 4, maximum];
+        } else if (currentPage >= maximum - 1) {
+            // Final: 1,final-3,final-2,final-1,final
+            pages = [1, maximum - 3, maximum - 2, maximum - 1, maximum];
+        } else if (currentPage === 3) {
+            // Caso especial página 3: 1,2,3,4,final
+            pages = [1, 2, 3, 4, maximum];
+        } else if (currentPage === maximum - 2) {
+            // Caso especial antepenúltima: 1,final-3,final-2,final-1,final
+            pages = [1, maximum - 3, maximum - 2, maximum - 1, maximum];
         } else {
-            // Si estamos en medio: actual-2, actual-1, actual, actual+1, actual+2
-            for (let i = currentPage - 2; i <= currentPage + 2; i++) {
-                pages.push(i);
-            }
+            // Medio: 1,actual-1,actual,actual+1,final
+            pages = [1, currentPage - 1, currentPage, currentPage + 1, maximum];
         }
     }
     
     // Generar HTML para los números
-    pages.forEach(pageNum => {
+    pages.forEach((pageNum, index) => {
         if (pageNum === currentPage) {
             html += `<span class="pagenumber current">${pageNum}</span>`;
         } else {
             html += createPageLink(pageNum, pageNum);
+        }
+        
+        // No agregar espacio después del último elemento
+        if (index < pages.length - 1) {
+            html += " ";
         }
     });
     
