@@ -23,82 +23,74 @@ function pagination(totalPosts) {
     let leftnum = Math.floor(pagesToShow / 2);
     let maximum = Math.ceil(totalPosts / itemsPerPage);
 
-    paginationHTML += `<span class='totalpages'>Hoja ${currentPage} de ${maximum}</span>`;
-
-    // Botón anterior con estilo de Blogger
+    // Solo mostrar la numeración si no es la primera página
     if (currentPage > 1) {
-        paginationHTML += createPageLink(currentPage - 1, prevpage, 'blog-pager-older-link');
-    }
+        paginationHTML += `<span class='totalpages'>Hoja ${currentPage} de ${maximum}</span>`;
 
-    // Solo mostrar numeración si estamos en la página 2 o superior y hay más de 1 página
-    if (currentPage >= 2 && maximum > 1) {
+        if (currentPage > 1) {
+            paginationHTML += createPageLink(currentPage - 1, prevpage);
+        }
+
         let start = Math.max(currentPage - leftnum, 1);
         let end = Math.min(start + pagesToShow - 1, maximum);
 
-        // Ajustar el rango para mostrar páginas alrededor de la actual
-        if (currentPage === 2) {
-            start = 1;
-            end = Math.min(pagesToShow, maximum);
-        }
+        if (start > 1) paginationHTML += createPageLink(1, "1");
+        if (start > 2) paginationHTML += "...";
 
-        // Página 1 si no está en el rango
-        if (start > 1) {
-            paginationHTML += createPageLink(1, "1", 'blog-pager-page-link');
-            if (start > 2) paginationHTML += "<span class='blog-pager-dots'>...</span>";
-        }
-
-        // Páginas numeradas
         for (let r = start; r <= end; r++) {
-            if (r === currentPage) {
-                paginationHTML += `<span class="blog-pager-current-page">${r}</span>`;
-            } else {
-                paginationHTML += createPageLink(r, r, 'blog-pager-page-link');
-            }
+            paginationHTML += r === currentPage 
+                ? `<span class="pagenumber current">${r}</span>` 
+                : createPageLink(r, r);
         }
 
-        // Última página si no está en el rango
-        if (end < maximum - 1) {
-            paginationHTML += "<span class='blog-pager-dots'>...</span>";
-        }
-        if (end < maximum) {
-            paginationHTML += createPageLink(maximum, maximum, 'blog-pager-page-link');
+        if (end < maximum - 1) paginationHTML += "...";
+        if (end < maximum) paginationHTML += createPageLink(maximum, maximum);
+
+        if (currentPage < maximum) {
+            paginationHTML += createPageLink(currentPage + 1, nextpage);
         }
     }
 
-    // Botón siguiente con estilo de Blogger
-    if (currentPage < maximum) {
-        paginationHTML += createPageLink(currentPage + 1, nextpage, 'blog-pager-newer-link');
-    }
-
-    let pageArea = document.getElementsByName("pageArea");
     let pagerElement = document.getElementById("blog-pager");
 
-    for (let i = 0; i < pageArea.length; i++) {
-        pageArea[i].innerHTML = paginationHTML;
+    if (pagerElement) {
+        // Encontrar los botones predeterminados de Blogger si existen
+        let prevButton = pagerElement.querySelector(".blog-pager-older-link");
+        let nextButton = pagerElement.querySelector(".blog-pager-newer-link");
+
+        // Limpiar el contenido existente en pageArea (si se usa)
+        let pageArea = document.getElementsByName("pageArea");
+        for (let i = 0; i < pageArea.length; i++) {
+            pageArea[i].innerHTML = ""; // Vaciar para evitar duplicados si se usa esta clase
+        }
+
+        // Insertar la paginación en el medio si prevButton existe
+        if (prevButton && nextButton) {
+            // Crear un contenedor para la numeración y su "Hoja X de Y"
+            let paginationWrapper = document.createElement("div");
+            paginationWrapper.className = "pagination-numbers-wrapper"; // Clase para estilizar
+            paginationWrapper.innerHTML = paginationHTML;
+
+            // Insertar el nuevo elemento después del botón "anterior"
+            pagerElement.insertBefore(paginationWrapper, nextButton);
+        } else {
+            // Si no hay botones predeterminados, simplemente añadir al pagerElement
+            pagerElement.innerHTML = paginationHTML;
+        }
     }
-    if (pagerElement) pagerElement.innerHTML = paginationHTML;
 }
 
-// Crear enlace de página con clases de estilo de Blogger
-function createPageLink(pageNum, linkText, cssClass = 'blog-pager-link') {
-    let linkHTML = "";
-    
+// Crear enlace de página
+function createPageLink(pageNum, linkText) {
     if (type === "page") {
-        linkHTML = `<a href="#" onclick="redirectpage(${pageNum}); return false;" class="${cssClass}">${linkText}</a>`;
+        return `<span class="pagenumber"><a href="#" onclick="redirectpage(${pageNum}); return false;">${linkText}</a></span>`;
     } else if (type === "label") {
-        linkHTML = `<a href="#" onclick="redirectlabel(${pageNum}); return false;" class="${cssClass}">${linkText}</a>`;
+        return `<span class="pagenumber"><a href="#" onclick="redirectlabel(${pageNum}); return false;">${linkText}</a></span>`;
     } else { // type === "search"
         let searchParam = searchQuery ? `q=${encodeURIComponent(searchQuery)}` : "";
         let startIndex = (pageNum - 1) * itemsPerPage;
         let url = `${window.location.origin}/search?${searchParam}&updated-max=${encodeURIComponent(lastPostDate || new Date().toISOString())}&max-results=${itemsPerPage}&start=${startIndex}&by-date=false#PageNo=${pageNum}`;
-        linkHTML = `<a href="${url}" class="${cssClass}">${linkText}</a>`;
-    }
-    
-    // Envolver en span con clase específica para páginas numeradas
-    if (cssClass === 'blog-pager-page-link') {
-        return `<span class="blog-pager-page">${linkHTML}</span>`;
-    } else {
-        return `<span class="blog-pager-nav">${linkHTML}</span>`;
+        return `<span class="pagenumber"><a href="${url}">${linkText}</a></span>`;
     }
 }
 
@@ -164,7 +156,7 @@ function finddatepost(data) {
 // Determinar tipo de página y cargar datos
 function bloggerpage() {
     searchQuery = getSearchQuery();
-    let activePage = urlactivepage;
+    let activePage = window.location.href; // Usar window.location.href para la URL completa
 
     if (activePage.includes("/search/label/")) {
         type = "label";
@@ -181,13 +173,15 @@ function bloggerpage() {
 
     let scriptUrl;
     if (type === "search") {
-        // Usar el feed con el parámetro de búsqueda correctamente
         let searchParam = searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : "";
         scriptUrl = `${home_page}feeds/posts/summary${searchParam}&max-results=150&alt=json-in-script&callback=paginationall`;
     } else if (type === "label") {
-        scriptUrl = `${home_page}feeds/posts/summary/-/${lblname1}?max-results=1&alt=json-in-script&callback=paginationall`;
+        // En este caso, para obtener el total de posts de la etiqueta, necesitamos una consulta más general.
+        // Si no se especifica max-results, Blogger devuelve un número predeterminado (generalmente 25 o 50).
+        // Para calcular el total de páginas correctamente, necesitamos un número suficientemente grande.
+        scriptUrl = `${home_page}feeds/posts/summary/-/${lblname1}?max-results=150&alt=json-in-script&callback=paginationall`; 
     } else { // type === "page"
-        scriptUrl = `${home_page}feeds/posts/summary?max-results=1&alt=json-in-script&callback=paginationall`;
+        scriptUrl = `${home_page}feeds/posts/summary?max-results=150&alt=json-in-script&callback=paginationall`;
     }
 
     let script = document.createElement("script");
@@ -209,9 +203,9 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function addMaxResults(event) {
-    event.preventDefault(); // Evitar el envío por defecto
-    var query = document.querySelector('input[name="q"]').value;
-    var baseUrl = (typeof searchBaseUrl !== 'undefined' ? searchBaseUrl : (home_page + 'search')); // Usar searchBaseUrl o fallback a home_page + 'search'
-    var searchUrl = baseUrl + "?q=" + encodeURIComponent(query) + "&max-results=" + itemsPerPage;
-    window.location.href = searchUrl; // Redirigir con max-results
+  event.preventDefault(); // Evitar el envío por defecto
+  var query = document.querySelector('input[name="q"]').value;
+  var baseUrl = (typeof searchBaseUrl !== 'undefined' ? searchBaseUrl : (home_page + 'search')); // Usar searchBaseUrl o fallback a home_page + 'search'
+  var searchUrl = baseUrl + "?q=" + encodeURIComponent(query) + "&max-results=" + itemsPerPage;
+  window.location.href = searchUrl; // Redirigir con max-results
 }
