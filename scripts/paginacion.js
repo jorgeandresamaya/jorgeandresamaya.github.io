@@ -9,13 +9,12 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/* paginacion.js — Centrado de números entre botones, oculto en Home, updated-max */
 (function(){
   "use strict";
 
   const DEFAULTS = {
     pagerSelector: "#blog-pager",
-    numberSelector: "#numeracion-paginacion",
+    numberSelector: "numeracion-paginacion",
     numberClass: "pager-item",
     activeClass: "is-active",
     dotsClass: "pager-dots",
@@ -26,14 +25,14 @@
 
   const qs = (sel, ctx=document) => ctx.querySelector(sel);
   const qsa = (sel, ctx=document) => Array.from((ctx||document).querySelectorAll(sel));
-  const readCache = k => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null } catch(e){ try{ localStorage.removeItem(k)}catch{} return null }};
-  const writeCache = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)) }catch(e){} };
+  const readCache = (k) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null } catch(e){ try{ localStorage.removeItem(k) }catch{} return null } };
+  const writeCache = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
 
   function parseMaxResultsFromPager(pagerNode){
     if(!pagerNode) return null;
     const a = qsa("a", pagerNode).find(el => el.href && el.href.includes("max-results="));
     if(!a) return null;
-    try{ const u = new URL(a.href); return Number(u.searchParams.get("max-results")) || null } catch(e){ return null }
+    try{ const u = new URL(a.href); return Number(u.searchParams.get("max-results")) || null; } catch(e){ return null; }
   }
 
   function normalizeDate(s){ if(!s) return s; return String(s).replace(/\.\d+/, "").trim(); }
@@ -62,7 +61,7 @@
       }
       this.query = this.curUrl.searchParams.get("q") || null;
       this.pagerNode = qs(this.config.pagerSelector);
-      this.numbersNode = qs(this.config.numberSelector);
+      this.numbersNode = qs("#" + this.config.numberSelector);
       this.maxResults = parseMaxResultsFromPager(this.pagerNode) || null;
       this.currentUpdated = this.curUrl.searchParams.get("updated-max") || null;
       this.currentStart = this.curUrl.searchParams.get("start") ? Number(this.curUrl.searchParams.get("start")) : (this.curUrl.searchParams.get("start-index") ? Number(this.curUrl.searchParams.get("start-index")) : null);
@@ -74,8 +73,9 @@
       if(!this.maxResults) this.maxResults = 10;
 
       const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
+
       let summary = null;
-      try { summary = await this._fetchSummary(); } catch(e){}
+      try { summary = await this._fetchSummary(); } catch(e){ }
 
       let postDates = (cached && cached.postDates && cached.postDates.length) ? cached.postDates : [];
       if(!postDates.length || (summary && summary.updated && summary.updated !== cached.updated)){
@@ -90,52 +90,55 @@
 
       const totalPosts = (readCache(this._cacheKey) && readCache(this._cacheKey).totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
       const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
+
       const currentPage = this._computeCurrentPage(postDates, totalPages);
+
       const pagesToShow = this._computePagesToShow(totalPages, currentPage);
+
       this._render(pagesToShow, postDates, totalPages, currentPage);
     }
 
     _ensureNodes(){
-  if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
-  if(!this.pagerNode) return false;
+      if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
+      if(!this.pagerNode) return false;
 
-  // ocultar en Home
-  if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
+      // ocultar en Home
+      if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
 
-  const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
-  const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
+      // crear contenedor flex si no existe
+      if(!this.flexContainer){
+        this.flexContainer = document.createElement("div");
+        this.flexContainer.style.display = "flex";
+        this.flexContainer.style.justifyContent = "center"; 
+        this.flexContainer.style.alignItems = "center";
+        this.flexContainer.style.gap = "12px";
+        this.pagerNode.innerHTML = "";
+        this.pagerNode.appendChild(this.flexContainer);
+      }
 
-  // crear contenedor flex para alinear los botones y números
-  const flexContainer = document.createElement("div");
-  flexContainer.style.display = "flex";
-  flexContainer.style.justifyContent = "center";  // centrado horizontal
-  flexContainer.style.alignItems = "center";      // centrado vertical
-  flexContainer.style.gap = "12px";
+      // volver a buscar botones nativos cada vez
+      this.newerBtn = qs(".blog-pager-newer-link", this.pagerNode);
+      this.olderBtn = qs(".blog-pager-older-link", this.pagerNode);
 
-  // insertar botón "Entradas más recientes"
-  if(newerBtn) flexContainer.appendChild(newerBtn);
+      // crear nodo de números si no existe
+      if(!this.numbersNode){
+        const div = document.createElement("div");
+        div.id = this.config.numberSelector;
+        div.style.display = "inline-flex";
+        div.style.alignItems = "center";
+        div.style.justifyContent = "center";
+        div.style.gap = "6px";
+        this.numbersNode = div;
+      }
 
-  // crear contenedor de números si no existe
-  if(!this.numbersNode){
-    const div = document.createElement("div");
-    div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-    div.style.display = "inline-flex";
-    div.style.alignItems = "center";
-    div.style.justifyContent = "center"; // centrado interno
-    div.style.gap = "6px";
-    this.numbersNode = div;
-  }
-  flexContainer.appendChild(this.numbersNode);
+      // limpiar flexContainer y volver a agregar: botón nuevo, números, botón antiguo
+      this.flexContainer.innerHTML = "";
+      if(this.newerBtn) this.flexContainer.appendChild(this.newerBtn);
+      this.flexContainer.appendChild(this.numbersNode);
+      if(this.olderBtn) this.flexContainer.appendChild(this.olderBtn);
 
-  // insertar botón "Entradas anteriores"
-  if(olderBtn) flexContainer.appendChild(olderBtn);
-
-  // limpiar y agregar el contenedor flex
-  this.pagerNode.innerHTML = "";
-  this.pagerNode.appendChild(flexContainer);
-
-  return !!this.numbersNode;
-}
+      return !!this.numbersNode;
+    }
 
     async _fetchSummary(){
       const feedUrl = `${this.homeUrl}/feeds/posts/summary/${this.label ? `-/${this.label}?` : "?"}alt=json&max-results=0`;
@@ -147,9 +150,10 @@
     }
 
     async _fetchAllPostDates(totalFromSummary=0){
-      if(totalFromSummary === 0) return { totalPosts:0, postDates:[] };
+      const total = totalFromSummary || 0;
+      if(total === 0) return { totalPosts: 0, postDates: [] };
       const batch = this.config.batchSize;
-      const pages = Math.ceil(totalFromSummary / batch);
+      const pages = Math.ceil(total / batch);
       const promises = [];
       for(let i=0;i<pages;i++){
         const startIndex = i*batch + 1;
@@ -158,7 +162,7 @@
       }
       const results = await Promise.all(promises);
       const postDates = results.flatMap(r => (r && r.feed && r.feed.entry) ? r.feed.entry.map(en => normalizeDate(en.published.$t)) : []);
-      return { totalPosts: totalFromSummary, postDates: postDates };
+      return { totalPosts: total, postDates: postDates };
     }
 
     _computeCurrentPage(postDates, totalPages){
@@ -167,24 +171,24 @@
       const cur = normalizeDate(this.currentUpdated);
       for(let p=2;p<=totalPages;p++){
         const idx = (p-1)*this.maxResults -1;
-        if(idx>=0 && idx<postDates.length){
+        if(idx >=0 && idx < postDates.length){
           const candidate = normalizeDate(postDates[idx]);
-          if(candidate===cur || encodeURIComponent(candidate)===this.currentUpdated || decodeURIComponent(this.currentUpdated||"")===candidate) return p;
+          if(candidate === cur || encodeURIComponent(candidate) === this.currentUpdated || decodeURIComponent(this.currentUpdated||"") === candidate) return p;
         }
       }
       return 1;
     }
 
     _computePagesToShow(totalPages, currentPage){
-      const visible = Math.max(1, Number(this.config.totalVisibleNumbers)||5);
-      if(totalPages <= visible) return ranges(1,totalPages);
-      const k = visible-1;
+      const visible = Math.max(1, Number(this.config.totalVisibleNumbers) || 5);
+      if(totalPages <= visible) return ranges(1, totalPages);
+      const k = visible - 1;
       let start = currentPage - Math.floor(k/2);
-      if(start<2) start=2;
-      let end=start+k-1;
-      if(end>totalPages-1){ start=Math.max(2,totalPages-k); end=totalPages-1; }
-      const middle = ranges(start,end);
-      const result=[1].concat(middle);
+      if(start < 2) start = 2;
+      let end = start + k - 1;
+      if(end > totalPages - 1){ end = totalPages - 1; start = Math.max(2, end - k + 1); }
+      const middle = ranges(start, end);
+      const result = [1].concat(middle);
       if(!result.includes(totalPages)) result.push(totalPages);
       return result;
     }
@@ -195,39 +199,47 @@
 
       const frag = document.createDocumentFragment();
 
-      const makeAnchor = (page,text,isActive)=>{
+      const makeAnchor = (page, text, isActive) => {
         const a = document.createElement("a");
-        a.className=this.config.numberClass+(isActive?" "+this.config.activeClass:"");
-        a.textContent=String(text);
+        a.className = this.config.numberClass + (isActive ? " " + this.config.activeClass : "");
+        a.textContent = String(text);
         if(!isActive){
-          if(page===1){
-            if(this.label) a.href=`${this.homeUrl}/search/label/${this.label}?max-results=${this.maxResults}`;
-            else if(this.query) a.href=`${this.homeUrl}/search?q=${encodeURIComponent(this.query)}&max-results=${this.maxResults}`;
-            else a.href=this.homeUrl+"/";
+          if(page === 1){
+            if(this.label) a.href = `${this.homeUrl}/search/label/${this.label}?max-results=${this.maxResults}`;
+            else if(this.query) a.href = `${this.homeUrl}/search?q=${encodeURIComponent(this.query)}&max-results=${this.maxResults}`;
+            else a.href = this.homeUrl + "/";
           } else {
-            const idx=(page-1)*this.maxResults-1;
-            const updated=(idx>=0 && idx<postDates.length)?postDates[idx]:null;
-            const startIndex=(page-1)*this.maxResults;
-            a.href=buildPageLink({homeUrl:this.homeUrl,label:this.label,query:this.query,updated:updated,maxResults:this.maxResults,startIndex:startIndex});
+            const idx = (page - 1)*this.maxResults - 1;
+            const updated = (idx >=0 && idx < postDates.length) ? postDates[idx] : null;
+            const startIndex = (page - 1)*this.maxResults;
+            a.href = buildPageLink({ homeUrl: this.homeUrl, label: this.label, query: this.query, updated: updated, maxResults: this.maxResults, startIndex: startIndex });
           }
         }
+        a.style.display = "inline-block";
+        a.style.verticalAlign = "middle";
+        a.style.margin = "0 6px";
         return a;
       };
 
-      const makeDots = ()=>{
-        const s=document.createElement("span");
-        s.className=this.config.dotsClass;
-        s.textContent="…";
-        s.style.pointerEvents="none";
+      const makeDots = () => {
+        const s = document.createElement("span");
+        s.className = this.config.dotsClass;
+        s.textContent = "…";
+        s.style.display = "inline-block";
+        s.style.verticalAlign = "middle";
+        s.style.margin = "0 6px";
+        s.style.pointerEvents = "none";
         return s;
       };
 
-      let prev=null;
-      pagesArr.forEach(p=>{
-        if(prev!==null && p-prev>1) frag.appendChild(makeDots());
-        const isActive=(p===currentPage);
-        frag.appendChild(makeAnchor(p,p,isActive));
-        prev=p;
+      let prev = null;
+      pagesArr.forEach(p => {
+        if(prev !== null && p - prev > 1){
+          frag.appendChild(makeDots());
+        }
+        const isActive = (p === currentPage);
+        frag.appendChild(makeAnchor(p, p, isActive));
+        prev = p;
       });
 
       this.numbersNode.appendChild(frag);
@@ -235,18 +247,18 @@
   }
 
   function autoInit(attempts=14, delay=400){
-    let tries=0;
-    const tryNow=()=>{
+    let tries = 0;
+    const tryNow = () => {
       tries++;
-      const pager=qs(DEFAULTS.pagerSelector);
+      const pager = qs(DEFAULTS.pagerSelector);
       if(pager){
-        const inst=new BloggerPager();
-        inst.init().catch(e=>console.warn("BloggerPager init error:",e));
+        const inst = new BloggerPager();
+        inst.init().catch(e => console.warn("BloggerPager init error:", e));
         return;
       }
-      if(tries<attempts) setTimeout(tryNow,delay);
+      if(tries < attempts) setTimeout(tryNow, delay);
     };
-    if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",tryNow);
+    if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", tryNow);
     else tryNow();
   }
 
