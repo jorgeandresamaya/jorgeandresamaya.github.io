@@ -136,8 +136,8 @@
     }
 
     _renderFlexContainer(){
-      const olderBtn=qs(".blog-pager-older-link",this.pagerNode);
-      const newerBtn=qs(".blog-pager-newer-link",this.pagerNode);
+      const olderBtn=qs(".blog-pager-older-link");
+      const newerBtn=qs(".blog-pager-newer-link");
 
       const flex=document.createElement("div");
       flex.style.display="flex";
@@ -178,14 +178,16 @@
     const tryNow=()=>{
       tries++;
       if(qs(DEFAULTS.pagerSelector)){
-        const inst=new BloggerPager(); inst.init().catch(console.warn); return;
+        new BloggerPager().init().catch(console.warn); return;
       }
       if(tries<attempts) setTimeout(tryNow,delay);
     };
     if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",tryNow);
+    else try
     else tryNow();
   }
 
-  autoInit();
+  try { autoInit(); } 
+  catch(e){ console.error("BloggerPager bootstrap error", e); }
 
 })();
