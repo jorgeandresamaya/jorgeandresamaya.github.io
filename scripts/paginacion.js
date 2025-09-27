@@ -105,7 +105,7 @@
   const newer = this.pagerNode.querySelector(".blog-pager-newer-link");
   const older = this.pagerNode.querySelector(".blog-pager-older-link");
 
-  // Crear contenedor de números si no existe
+  // Si ya existe el contenedor de números, no lo recreamos
   if (!this.numbersNode) {
     const wrapper = document.createElement("div");
     wrapper.id = this.config.numberSelector.replace(/^#/, "");
