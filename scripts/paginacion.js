@@ -9,7 +9,7 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/* paginacion.js — ajustado: centrado entre flechas, oculto en home */
+/* paginacion.js — Ajustado: números centrados entre botones y ocultos en Home */
 (function(){
   "use strict";
 
@@ -57,7 +57,6 @@
       this.homeUrl = window.location.origin;
       this.curUrl = new URL(window.location.href);
       this.isHome = this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html";
-      if(this.isHome) return;
       this.label = null;
       if(this.curUrl.pathname.includes("/search/label/")){
         const bits = this.curUrl.pathname.split("/"); this.label = bits[bits.length-1] || null;
@@ -72,6 +71,9 @@
     }
 
     async init(){
+      // Ocultar números en Home
+      if(this.isHome) return;
+
       if(!this._ensureNodes()) return;
       if(!this.maxResults) this.maxResults = 10;
 
@@ -103,17 +105,19 @@
       if(!this.pagerNode) return false;
 
       if(!this.numbersNode){
-        const wrapper = document.createElement("div");
-        wrapper.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-        // **Flex para centrar los números entre las flechas**
-        wrapper.style.display = "flex";
-        wrapper.style.justifyContent = "center";
-        wrapper.style.alignItems = "center";
-        wrapper.style.margin = "6px 0";
+        const div = document.createElement("div");
+        div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+        // Flex centrado
+        div.style.display = "flex";
+        div.style.justifyContent = "center";
+        div.style.alignItems = "center";
+        div.style.margin = "0 6px";
         const older = this.pagerNode.querySelector(".blog-pager-older-link");
-        this.pagerNode.insertBefore(wrapper, older || null);
-        this.numbersNode = wrapper;
+        this.pagerNode.insertBefore(div, older || null);
+        this.numbersNode = div;
       }
+
+      // Asegurar que el contenedor padre de flechas y números esté centrado
       this.pagerNode.style.display="flex";
       this.pagerNode.style.justifyContent="center";
       this.pagerNode.style.alignItems="center";
