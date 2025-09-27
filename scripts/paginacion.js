@@ -9,7 +9,7 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/* paginacion.js — Ajustado: números centrados entre botones y ocultos en Home */
+/* paginacion.js — Final adaptado para centrar números y ocultar en Home */
 (function(){
   "use strict";
 
@@ -56,7 +56,6 @@
       this.config = Object.assign({}, DEFAULTS, opts);
       this.homeUrl = window.location.origin;
       this.curUrl = new URL(window.location.href);
-      this.isHome = this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html";
       this.label = null;
       if(this.curUrl.pathname.includes("/search/label/")){
         const bits = this.curUrl.pathname.split("/"); this.label = bits[bits.length-1] || null;
@@ -71,17 +70,21 @@
     }
 
     async init(){
-      // Ocultar números en Home
-      if(this.isHome) return;
-
       if(!this._ensureNodes()) return;
       if(!this.maxResults) this.maxResults = 10;
 
-      const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
-      let summary=null;
-      try { summary = await this._fetchSummary(); } catch(e){}
+      // ocultar en Home
+      if(window.location.pathname === "/" || window.location.pathname === "/index.html") {
+        this.numbersNode.style.display = "none";
+        return;
+      }
 
-      let postDates = (cached.postDates && cached.postDates.length) ? cached.postDates : [];
+      const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
+
+      let summary = null;
+      try { summary = await this._fetchSummary(); } catch(e){ }
+
+      let postDates = (cached && cached.postDates && cached.postDates.length) ? cached.postDates : [];
       if(!postDates.length || (summary && summary.updated && summary.updated !== cached.updated)){
         try {
           const fetched = await this._fetchAllPostDates(summary ? summary.totalPosts : (cached.totalPosts || 0));
@@ -92,36 +95,42 @@
         } catch(e){}
       }
 
-      const totalPosts = (readCache(this._cacheKey)?.totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
+      const totalPosts = (readCache(this._cacheKey) && readCache(this._cacheKey).totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
       const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
 
       const currentPage = this._computeCurrentPage(postDates, totalPages);
+
       const pagesToShow = this._computePagesToShow(totalPages, currentPage);
+
       this._render(pagesToShow, postDates, totalPages, currentPage);
     }
 
     _ensureNodes(){
       if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
       if(!this.pagerNode) return false;
-
       if(!this.numbersNode){
-        const div = document.createElement("div");
-        div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-        // Flex centrado
-        div.style.display = "flex";
-        div.style.justifyContent = "center";
-        div.style.alignItems = "center";
-        div.style.margin = "0 6px";
-        const older = this.pagerNode.querySelector(".blog-pager-older-link");
-        this.pagerNode.insertBefore(div, older || null);
-        this.numbersNode = div;
+        const existing = this.pagerNode.querySelector(this.config.numberSelector);
+        if(existing) this.numbersNode = existing;
+        else {
+          const div = document.createElement("div");
+          div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+          div.style.display = "inline-block";
+          div.style.verticalAlign = "middle";
+          div.style.margin = "0 6px";
+          // insert before older-link to center between newer/older
+          const older = this.pagerNode.querySelector(".blog-pager-older-link");
+          const newer = this.pagerNode.querySelector(".blog-pager-newer-link");
+          if(newer && older){
+            this.pagerNode.insertBefore(div, older);
+          } else if(older){
+            this.pagerNode.insertBefore(div, older);
+          } else {
+            this.pagerNode.appendChild(div);
+          }
+          this.numbersNode = div;
+        }
       }
-
-      // Asegurar que el contenedor padre de flechas y números esté centrado
-      this.pagerNode.style.display="flex";
-      this.pagerNode.style.justifyContent="center";
-      this.pagerNode.style.alignItems="center";
-      this.pagerNode.style.gap="6px";
+      this.pagerNode.style.textAlign = "center";
       return !!this.numbersNode;
     }
 
@@ -136,12 +145,12 @@
 
     async _fetchAllPostDates(totalFromSummary=0){
       const total = totalFromSummary || 0;
-      if(total===0) return { totalPosts:0, postDates:[] };
+      if(total === 0) return { totalPosts: 0, postDates: [] };
       const batch = this.config.batchSize;
       const pages = Math.ceil(total / batch);
-      const promises=[];
+      const promises = [];
       for(let i=0;i<pages;i++){
-        const startIndex=i*batch+1;
+        const startIndex = i*batch + 1;
         const url = `${this.homeUrl}/feeds/posts/summary/${this.label ? `-/${this.label}?` : "?"}alt=json&max-results=${batch}&start-index=${startIndex}`;
         promises.push(fetch(url).then(r=>r.json()).catch(()=>null));
       }
@@ -156,62 +165,78 @@
       const cur = normalizeDate(this.currentUpdated);
       for(let p=2;p<=totalPages;p++){
         const idx = (p-1)*this.maxResults -1;
-        if(idx>=0 && idx<postDates.length){
+        if(idx >=0 && idx < postDates.length){
           const candidate = normalizeDate(postDates[idx]);
-          if(candidate===cur || encodeURIComponent(candidate)===this.currentUpdated || decodeURIComponent(this.currentUpdated||"")===candidate) return p;
+          if(candidate === cur || encodeURIComponent(candidate) === this.currentUpdated || decodeURIComponent(this.currentUpdated||"") === candidate) return p;
         }
       }
       return 1;
     }
 
     _computePagesToShow(totalPages, currentPage){
-      const visible = Number(this.config.totalVisibleNumbers) || 5;
-      if(totalPages<=visible) return ranges(1,totalPages);
-      const k = visible-1;
+      const visible = Math.max(1, Number(this.config.totalVisibleNumbers) || 5);
+      if(totalPages <= visible) return ranges(1, totalPages);
+      const k = visible - 1; // aside from last page
       let start = currentPage - Math.floor(k/2);
-      if(start<2) start=2;
-      let end = start+k-1;
-      if(end>totalPages-1){ end=totalPages-1; start=Math.max(2,end-k+1);}
-      const middle = ranges(start,end);
-      const result=[1].concat(middle);
+      if(start < 2) start = 2;
+      let end = start + k - 1;
+      if(end > totalPages - 1){ end = totalPages - 1; start = Math.max(2, end - k + 1); }
+      const middle = ranges(start, end);
+      const result = [1].concat(middle);
       if(!result.includes(totalPages)) result.push(totalPages);
       return result;
     }
 
     _render(pagesArr, postDates, totalPages, currentPage){
       if(!this.numbersNode) return;
-      this.numbersNode.innerHTML="";
+      this.numbersNode.innerHTML = "";
+      this.numbersNode.style.display = "inline-block";
+      this.numbersNode.style.verticalAlign = "middle";
+      this.numbersNode.style.textAlign = "center";
 
-      const frag=document.createDocumentFragment();
+      const frag = document.createDocumentFragment();
 
-      const makeAnchor=(page,text,isActive)=>{
-        const a=document.createElement("a");
-        a.className=this.config.numberClass + (isActive?" "+this.config.activeClass:"");
-        a.textContent=String(text);
+      const makeAnchor = (page, text, isActive) => {
+        const a = document.createElement("a");
+        a.className = this.config.numberClass + (isActive ? " " + this.config.activeClass : "");
+        a.textContent = String(text);
         if(!isActive){
-          const idx=(page-1)*this.maxResults -1;
-          const updated=(idx>=0 && idx<postDates.length) ? postDates[idx] : null;
-          const startIndex=(page-1)*this.maxResults;
-          a.href=buildPageLink({homeUrl:this.homeUrl,label:this.label,query:this.query,updated:updated,maxResults:this.maxResults,startIndex:startIndex});
+          if(page === 1){
+            if(this.label) a.href = `${this.homeUrl}/search/label/${this.label}?max-results=${this.maxResults}`;
+            else if(this.query) a.href = `${this.homeUrl}/search?q=${encodeURIComponent(this.query)}&max-results=${this.maxResults}`;
+            else a.href = this.homeUrl + "/";
+          } else {
+            const idx = (page - 1)*this.maxResults - 1;
+            const updated = (idx >=0 && idx < postDates.length) ? postDates[idx] : null;
+            const startIndex = (page - 1)*this.maxResults;
+            a.href = buildPageLink({ homeUrl: this.homeUrl, label: this.label, query: this.query, updated: updated, maxResults: this.maxResults, startIndex: startIndex });
+          }
         }
-        a.style.margin="0 4px";
+        a.style.display = "inline-block";
+        a.style.verticalAlign = "middle";
+        a.style.margin = "0 6px";
         return a;
       };
 
-      const makeDots=()=>{
-        const s=document.createElement("span");
-        s.className=this.config.dotsClass;
-        s.textContent="…";
-        s.style.margin="0 4px";
+      const makeDots = () => {
+        const s = document.createElement("span");
+        s.className = this.config.dotsClass;
+        s.textContent = "…";
+        s.style.display = "inline-block";
+        s.style.verticalAlign = "middle";
+        s.style.margin = "0 6px";
+        s.style.pointerEvents = "none";
         return s;
       };
 
-      let prev=null;
-      pagesArr.forEach(p=>{
-        if(prev!==null && p-prev>1) frag.appendChild(makeDots());
-        const isActive = (p===currentPage);
-        frag.appendChild(makeAnchor(p,p,isActive));
-        prev=p;
+      let prev = null;
+      pagesArr.forEach(p => {
+        if(prev !== null && p - prev > 1){
+          frag.appendChild(makeDots());
+        }
+        const isActive = (p === currentPage);
+        frag.appendChild(makeAnchor(p, p, isActive));
+        prev = p;
       });
 
       this.numbersNode.appendChild(frag);
@@ -219,18 +244,18 @@
   }
 
   function autoInit(attempts=14, delay=400){
-    let tries=0;
-    const tryNow=()=>{
+    let tries = 0;
+    const tryNow = () => {
       tries++;
       const pager = qs(DEFAULTS.pagerSelector);
       if(pager){
         const inst = new BloggerPager();
-        inst.init().catch(e=>console.warn("BloggerPager init error:",e));
+        inst.init().catch(e => console.warn("BloggerPager init error:", e));
         return;
       }
-      if(tries<attempts) setTimeout(tryNow,delay);
+      if(tries < attempts) setTimeout(tryNow, delay);
     };
-    if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", tryNow);
+    if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", tryNow);
     else tryNow();
   }
 
