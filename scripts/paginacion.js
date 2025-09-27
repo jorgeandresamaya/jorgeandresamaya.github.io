@@ -14,7 +14,7 @@
 
   const DEFAULTS = {
     pagerSelector: "#blog-pager",
-    numberSelector: "#numeracion-paginacion",
+    numberSelector: "numeracion-paginacion",
     numberClass: "pager-item",
     activeClass: "is-active",
     dotsClass: "pager-dots",
@@ -61,7 +61,7 @@
       }
       this.query = this.curUrl.searchParams.get("q") || null;
       this.pagerNode = qs(this.config.pagerSelector);
-      this.numbersNode = qs(this.config.numberSelector);
+      this.numbersNode = qs("#" + this.config.numberSelector);
       this.maxResults = parseMaxResultsFromPager(this.pagerNode) || null;
       this.currentUpdated = this.curUrl.searchParams.get("updated-max") || null;
       this.currentStart = this.curUrl.searchParams.get("start") ? Number(this.curUrl.searchParams.get("start")) : (this.curUrl.searchParams.get("start-index") ? Number(this.curUrl.searchParams.get("start-index")) : null);
@@ -71,12 +71,6 @@
     async init(){
       if(!this._ensureNodes()) return;
       if(!this.maxResults) this.maxResults = 10;
-
-      // ocultar en Home
-      if(window.location.pathname === "/" || window.location.pathname === "/index.html") {
-        this.numbersNode.style.display = "none";
-        return;
-      }
 
       const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
 
@@ -105,44 +99,46 @@
     }
 
     _ensureNodes(){
-  if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
-  if(!this.pagerNode) return false;
+      if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
+      if(!this.pagerNode) return false;
 
-  // ocultar en Home
-  if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
+      // ocultar en Home
+      if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
 
-  // crear contenedor flex para centrar botones y números
-  const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
-  const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
+      // crear contenedor flex si no existe
+      if(!this.flexContainer){
+        this.flexContainer = document.createElement("div");
+        this.flexContainer.style.display = "flex";
+        this.flexContainer.style.justifyContent = "center"; 
+        this.flexContainer.style.alignItems = "center";
+        this.flexContainer.style.gap = "12px";
+        this.pagerNode.innerHTML = "";
+        this.pagerNode.appendChild(this.flexContainer);
+      }
 
-  const flexContainer = document.createElement("div");
-  flexContainer.style.display = "flex";
-  flexContainer.style.justifyContent = "center";
-  flexContainer.style.alignItems = "center";
-  flexContainer.style.gap = "12px";
-  
-  // mover botones al contenedor
-  if(newerBtn) flexContainer.appendChild(newerBtn);
-  
-  // crear nodo de números si no existe
-  if(!this.numbersNode){
-    const div = document.createElement("div");
-    div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-    div.style.display = "inline-flex";
-    div.style.alignItems = "center";
-    div.style.gap = "6px";
-    this.numbersNode = div;
-  }
-  flexContainer.appendChild(this.numbersNode);
-  
-  if(olderBtn) flexContainer.appendChild(olderBtn);
+      // volver a buscar botones nativos cada vez
+      this.newerBtn = qs(".blog-pager-newer-link", this.pagerNode);
+      this.olderBtn = qs(".blog-pager-older-link", this.pagerNode);
 
-  // limpiar y agregar el contenedor
-  this.pagerNode.innerHTML = "";
-  this.pagerNode.appendChild(flexContainer);
+      // crear nodo de números si no existe
+      if(!this.numbersNode){
+        const div = document.createElement("div");
+        div.id = this.config.numberSelector;
+        div.style.display = "inline-flex";
+        div.style.alignItems = "center";
+        div.style.justifyContent = "center";
+        div.style.gap = "6px";
+        this.numbersNode = div;
+      }
 
-  return !!this.numbersNode;
-}
+      // limpiar flexContainer y volver a agregar: botón nuevo, números, botón antiguo
+      this.flexContainer.innerHTML = "";
+      if(this.newerBtn) this.flexContainer.appendChild(this.newerBtn);
+      this.flexContainer.appendChild(this.numbersNode);
+      if(this.olderBtn) this.flexContainer.appendChild(this.olderBtn);
+
+      return !!this.numbersNode;
+    }
 
     async _fetchSummary(){
       const feedUrl = `${this.homeUrl}/feeds/posts/summary/${this.label ? `-/${this.label}?` : "?"}alt=json&max-results=0`;
@@ -186,7 +182,7 @@
     _computePagesToShow(totalPages, currentPage){
       const visible = Math.max(1, Number(this.config.totalVisibleNumbers) || 5);
       if(totalPages <= visible) return ranges(1, totalPages);
-      const k = visible - 1; // aside from last page
+      const k = visible - 1;
       let start = currentPage - Math.floor(k/2);
       if(start < 2) start = 2;
       let end = start + k - 1;
@@ -200,9 +196,6 @@
     _render(pagesArr, postDates, totalPages, currentPage){
       if(!this.numbersNode) return;
       this.numbersNode.innerHTML = "";
-      this.numbersNode.style.display = "inline-block";
-      this.numbersNode.style.verticalAlign = "middle";
-      this.numbersNode.style.textAlign = "center";
 
       const frag = document.createDocumentFragment();
 
