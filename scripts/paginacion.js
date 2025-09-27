@@ -19,7 +19,7 @@
     activeClass: "is-active",
     dotsClass: "pager-dots",
     totalVisibleNumbers: 5,
-    cacheKey: "bloggerPager_v2",
+    cacheKey: "bloggerPager_v3",
     batchSize: 150
   };
 
@@ -27,13 +27,6 @@
   const qsa = (sel, ctx=document) => Array.from((ctx||document).querySelectorAll(sel));
   const readCache = (k) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null } catch(e){ try{ localStorage.removeItem(k) }catch{} return null } };
   const writeCache = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
-
-  function parseMaxResultsFromPager(pagerNode){
-    if(!pagerNode) return null;
-    const a = qsa("a", pagerNode).find(el => el.href && el.href.includes("max-results="));
-    if(!a) return null;
-    try{ const u = new URL(a.href); return Number(u.searchParams.get("max-results")) || null; } catch(e){ return null; }
-  }
 
   function normalizeDate(s){ if(!s) return s; return String(s).replace(/\.\d+/, "").trim(); }
 
@@ -62,26 +55,22 @@
       this.query = this.curUrl.searchParams.get("q") || null;
       this.pagerNode = qs(this.config.pagerSelector);
       this.numbersNode = qs(this.config.numberSelector);
-      this.maxResults = parseMaxResultsFromPager(this.pagerNode) || null;
       this.currentUpdated = this.curUrl.searchParams.get("updated-max") || null;
       this.currentStart = this.curUrl.searchParams.get("start") ? Number(this.curUrl.searchParams.get("start")) : (this.curUrl.searchParams.get("start-index") ? Number(this.curUrl.searchParams.get("start-index")) : null);
       this._cacheKey = `${this.config.cacheKey}::${this.query || ""}::${this.label || ""}`;
     }
 
     async init(){
-      if(!this._ensureNodes()) return;
-      if(!this.maxResults) this.maxResults = 10;
-
-      // ocultar en Home
-      if(window.location.pathname === "/" || window.location.pathname === "/index.html") {
-        this.numbersNode.style.display = "none";
+      if(!this.pagerNode) return;
+      if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") {
+        if(this.numbersNode) this.numbersNode.style.display = "none";
         return;
       }
 
+      // Obtener total de posts
       const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
-
       let summary = null;
-      try { summary = await this._fetchSummary(); } catch(e){ }
+      try { summary = await this._fetchSummary(); } catch(e){}
 
       let postDates = (cached && cached.postDates && cached.postDates.length) ? cached.postDates : [];
       if(!postDates.length || (summary && summary.updated && summary.updated !== cached.updated)){
@@ -95,58 +84,20 @@
       }
 
       const totalPosts = (readCache(this._cacheKey) && readCache(this._cacheKey).totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
-      const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
-
-      const currentPage = this._computeCurrentPage(postDates, totalPages);
-
+      const maxResults = this._parseMaxResults() || 10;
+      const totalPages = Math.max(1, Math.ceil(totalPosts / maxResults));
+      const currentPage = this._computeCurrentPage(postDates, totalPages, maxResults);
       const pagesToShow = this._computePagesToShow(totalPages, currentPage);
 
-      this._render(pagesToShow, postDates, totalPages, currentPage);
+      this._render(pagesToShow, postDates, totalPages, currentPage, maxResults);
     }
 
-    _ensureNodes(){
-  if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
-  if(!this.pagerNode) return false;
-
-  // ocultar en Home
-  if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
-
-  // obtener botones existentes
-  const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
-  const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
-
-  // crear nodo de números si no existe
-  if(!this.numbersNode){
-    const div = document.createElement("div");
-    div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-    this.numbersNode = div;
-  }
-
-  // limpiar el pager para crear contenedor
-  this.pagerNode.innerHTML = "";
-
-  // crear contenedor flex
-  const flexContainer = document.createElement("div");
-  flexContainer.style.display = "flex";
-  flexContainer.style.flexWrap = "nowrap";       // evita que se rompan en varias líneas
-  flexContainer.style.justifyContent = "center"; // centra horizontalmente
-  flexContainer.style.alignItems = "center";     // alinea verticalmente
-  flexContainer.style.gap = "12px";              // espacio entre elementos
-
-  // agregar botones y números al contenedor
-  if(newerBtn) flexContainer.appendChild(newerBtn);
-  this.numbersNode.style.display = "inline-flex";
-  this.numbersNode.style.flexWrap = "nowrap";      // mantiene números en línea
-  this.numbersNode.style.alignItems = "center";
-  this.numbersNode.style.justifyContent = "center";
-  this.numbersNode.style.gap = "6px";
-  flexContainer.appendChild(this.numbersNode);
-  if(olderBtn) flexContainer.appendChild(olderBtn);
-
-  this.pagerNode.appendChild(flexContainer);
-
-  return !!this.numbersNode;
-}
+    _parseMaxResults(){
+      if(!this.pagerNode) return null;
+      const a = qsa("a", this.pagerNode).find(el => el.href && el.href.includes("max-results="));
+      if(!a) return null;
+      try{ const u = new URL(a.href); return Number(u.searchParams.get("max-results")) || null; } catch(e){ return null; }
+    }
 
     async _fetchSummary(){
       const feedUrl = `${this.homeUrl}/feeds/posts/summary/${this.label ? `-/${this.label}?` : "?"}alt=json&max-results=0`;
@@ -173,12 +124,12 @@
       return { totalPosts: total, postDates: postDates };
     }
 
-    _computeCurrentPage(postDates, totalPages){
-      if(this.currentStart && !Number.isNaN(this.currentStart)) return Math.floor(this.currentStart / this.maxResults) + 1;
+    _computeCurrentPage(postDates, totalPages, maxResults){
+      if(this.currentStart && !Number.isNaN(this.currentStart)) return Math.floor(this.currentStart / maxResults) + 1;
       if(!this.currentUpdated) return 1;
       const cur = normalizeDate(this.currentUpdated);
       for(let p=2;p<=totalPages;p++){
-        const idx = (p-1)*this.maxResults -1;
+        const idx = (p-1)*maxResults -1;
         if(idx >=0 && idx < postDates.length){
           const candidate = normalizeDate(postDates[idx]);
           if(candidate === cur || encodeURIComponent(candidate) === this.currentUpdated || decodeURIComponent(this.currentUpdated||"") === candidate) return p;
@@ -201,15 +152,31 @@
       return result;
     }
 
-    _render(pagesArr, postDates, totalPages, currentPage){
-      if(!this.numbersNode) return;
-      this.numbersNode.innerHTML = "";
+    _render(pagesArr, postDates, totalPages, currentPage, maxResults){
+      // limpiar contenedor
+      this.pagerNode.innerHTML = "";
+
+      const olderBtn = qs(".blog-pager-older-link");
+      const newerBtn = qs(".blog-pager-newer-link");
+
+      const flexContainer = document.createElement("div");
+      flexContainer.style.display = "flex";
+      flexContainer.style.justifyContent = "center";
+      flexContainer.style.alignItems = "center";
+      flexContainer.style.gap = "12px";
+
+      if(newerBtn) flexContainer.appendChild(newerBtn);
+
+      // números
+      if(!this.numbersNode){
+        const div = document.createElement("div");
+        div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+        this.numbersNode = div;
+      }
       this.numbersNode.style.display = "inline-flex";
       this.numbersNode.style.alignItems = "center";
-      this.numbersNode.style.justifyContent = "center";
       this.numbersNode.style.gap = "6px";
-
-      const frag = document.createDocumentFragment();
+      this.numbersNode.innerHTML = "";
 
       const makeAnchor = (page, text, isActive) => {
         const a = document.createElement("a");
@@ -217,18 +184,16 @@
         a.textContent = String(text);
         if(!isActive){
           if(page === 1){
-            if(this.label) a.href = `${this.homeUrl}/search/label/${this.label}?max-results=${this.maxResults}`;
-            else if(this.query) a.href = `${this.homeUrl}/search?q=${encodeURIComponent(this.query)}&max-results=${this.maxResults}`;
+            if(this.label) a.href = `${this.homeUrl}/search/label/${this.label}?max-results=${maxResults}`;
+            else if(this.query) a.href = `${this.homeUrl}/search?q=${encodeURIComponent(this.query)}&max-results=${maxResults}`;
             else a.href = this.homeUrl + "/";
           } else {
-            const idx = (page - 1)*this.maxResults - 1;
+            const idx = (page - 1)*maxResults - 1;
             const updated = (idx >=0 && idx < postDates.length) ? postDates[idx] : null;
-            const startIndex = (page - 1)*this.maxResults;
-            a.href = buildPageLink({ homeUrl: this.homeUrl, label: this.label, query: this.query, updated: updated, maxResults: this.maxResults, startIndex: startIndex });
+            const startIndex = (page - 1)*maxResults;
+            a.href = buildPageLink({ homeUrl: this.homeUrl, label: this.label, query: this.query, updated: updated, maxResults: maxResults, startIndex: startIndex });
           }
         }
-        a.style.display = "inline-block";
-        a.style.margin = "0 6px";
         return a;
       };
 
@@ -236,23 +201,22 @@
         const s = document.createElement("span");
         s.className = this.config.dotsClass;
         s.textContent = "…";
-        s.style.display = "inline-block";
-        s.style.margin = "0 6px";
         s.style.pointerEvents = "none";
         return s;
       };
 
       let prev = null;
       pagesArr.forEach(p => {
-        if(prev !== null && p - prev > 1){
-          frag.appendChild(makeDots());
-        }
+        if(prev !== null && p - prev > 1) this.numbersNode.appendChild(makeDots());
         const isActive = (p === currentPage);
-        frag.appendChild(makeAnchor(p, p, isActive));
+        this.numbersNode.appendChild(makeAnchor(p, p, isActive));
         prev = p;
       });
 
-      this.numbersNode.appendChild(frag);
+      flexContainer.appendChild(this.numbersNode);
+      if(olderBtn) flexContainer.appendChild(olderBtn);
+
+      this.pagerNode.appendChild(flexContainer);
     }
   }
 
