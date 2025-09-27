@@ -9,7 +9,7 @@
  */
 
 // Parámetros globales (estas variables se definirán en la plantilla)
-/* paginacion.js — Final adaptado para centrar números y ocultar en Home */
+/* paginacion.js — Final (updated-max, números entre botones, ocultos en Home) */
 (function(){
   "use strict";
 
@@ -26,7 +26,7 @@
 
   const qs = (sel, ctx=document) => ctx.querySelector(sel);
   const qsa = (sel, ctx=document) => Array.from((ctx||document).querySelectorAll(sel));
-  const readCache = (k) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null } catch(e){ try{ localStorage.removeItem(k) }catch{} return null } };
+  const readCache = k => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null } catch(e){ try{ localStorage.removeItem(k) }catch{} return null } };
   const writeCache = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
 
   function parseMaxResultsFromPager(pagerNode){
@@ -71,18 +71,13 @@
 
     async init(){
       if(!this._ensureNodes()) return;
-      if(!this.maxResults) this.maxResults = 10;
 
-      // ocultar en Home
-      if(window.location.pathname === "/" || window.location.pathname === "/index.html") {
-        this.numbersNode.style.display = "none";
-        return;
-      }
+      if(!this.maxResults) this.maxResults = 10;
 
       const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
 
       let summary = null;
-      try { summary = await this._fetchSummary(); } catch(e){ }
+      try { summary = await this._fetchSummary(); } catch(e){}
 
       let postDates = (cached && cached.postDates && cached.postDates.length) ? cached.postDates : [];
       if(!postDates.length || (summary && summary.updated && summary.updated !== cached.updated)){
@@ -97,53 +92,47 @@
 
       const totalPosts = (readCache(this._cacheKey) && readCache(this._cacheKey).totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
       const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
-
       const currentPage = this._computeCurrentPage(postDates, totalPages);
-
       const pagesToShow = this._computePagesToShow(totalPages, currentPage);
-
       this._render(pagesToShow, postDates, totalPages, currentPage);
     }
 
     _ensureNodes(){
-  if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
-  if(!this.pagerNode) return false;
+      if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
+      if(!this.pagerNode) return false;
 
-  // ocultar en Home
-  if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
+      // ocultar en Home
+      if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
 
-  // crear contenedor flex para centrar botones y números
-  const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
-  const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
+      const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
+      const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
 
-  const flexContainer = document.createElement("div");
-  flexContainer.style.display = "flex";
-  flexContainer.style.justifyContent = "center";
-  flexContainer.style.alignItems = "center";
-  flexContainer.style.gap = "12px";
-  
-  // mover botones al contenedor
-  if(newerBtn) flexContainer.appendChild(newerBtn);
-  
-  // crear nodo de números si no existe
-  if(!this.numbersNode){
-    const div = document.createElement("div");
-    div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-    div.style.display = "inline-flex";
-    div.style.alignItems = "center";
-    div.style.gap = "6px";
-    this.numbersNode = div;
-  }
-  flexContainer.appendChild(this.numbersNode);
-  
-  if(olderBtn) flexContainer.appendChild(olderBtn);
+      // crear contenedor flex
+      const flexContainer = document.createElement("div");
+      flexContainer.style.display = "flex";
+      flexContainer.style.justifyContent = "center";
+      flexContainer.style.alignItems = "center";
+      flexContainer.style.gap = "12px";
 
-  // limpiar y agregar el contenedor
-  this.pagerNode.innerHTML = "";
-  this.pagerNode.appendChild(flexContainer);
+      if(newerBtn) flexContainer.appendChild(newerBtn);
 
-  return !!this.numbersNode;
-}
+      if(!this.numbersNode){
+        const div = document.createElement("div");
+        div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+        div.style.display = "inline-flex";
+        div.style.alignItems = "center";
+        div.style.gap = "6px";
+        this.numbersNode = div;
+      }
+      flexContainer.appendChild(this.numbersNode);
+
+      if(olderBtn) flexContainer.appendChild(olderBtn);
+
+      this.pagerNode.innerHTML = "";
+      this.pagerNode.appendChild(flexContainer);
+
+      return !!this.numbersNode;
+    }
 
     async _fetchSummary(){
       const feedUrl = `${this.homeUrl}/feeds/posts/summary/${this.label ? `-/${this.label}?` : "?"}alt=json&max-results=0`;
@@ -155,10 +144,9 @@
     }
 
     async _fetchAllPostDates(totalFromSummary=0){
-      const total = totalFromSummary || 0;
-      if(total === 0) return { totalPosts: 0, postDates: [] };
+      if(totalFromSummary === 0) return { totalPosts: 0, postDates: [] };
       const batch = this.config.batchSize;
-      const pages = Math.ceil(total / batch);
+      const pages = Math.ceil(totalFromSummary / batch);
       const promises = [];
       for(let i=0;i<pages;i++){
         const startIndex = i*batch + 1;
@@ -167,7 +155,7 @@
       }
       const results = await Promise.all(promises);
       const postDates = results.flatMap(r => (r && r.feed && r.feed.entry) ? r.feed.entry.map(en => normalizeDate(en.published.$t)) : []);
-      return { totalPosts: total, postDates: postDates };
+      return { totalPosts: totalFromSummary, postDates: postDates };
     }
 
     _computeCurrentPage(postDates, totalPages){
@@ -187,11 +175,11 @@
     _computePagesToShow(totalPages, currentPage){
       const visible = Math.max(1, Number(this.config.totalVisibleNumbers) || 5);
       if(totalPages <= visible) return ranges(1, totalPages);
-      const k = visible - 1; // aside from last page
+      const k = visible - 1;
       let start = currentPage - Math.floor(k/2);
       if(start < 2) start = 2;
       let end = start + k - 1;
-      if(end > totalPages - 1){ end = totalPages - 1; start = Math.max(2, end - k + 1); }
+      if(end > totalPages - 1){ end = Math.max(2, totalPages - k); end = Math.min(end, totalPages-1); }
       const middle = ranges(start, end);
       const result = [1].concat(middle);
       if(!result.includes(totalPages)) result.push(totalPages);
@@ -201,9 +189,6 @@
     _render(pagesArr, postDates, totalPages, currentPage){
       if(!this.numbersNode) return;
       this.numbersNode.innerHTML = "";
-      this.numbersNode.style.display = "inline-block";
-      this.numbersNode.style.verticalAlign = "middle";
-      this.numbersNode.style.textAlign = "center";
 
       const frag = document.createDocumentFragment();
 
@@ -223,9 +208,6 @@
             a.href = buildPageLink({ homeUrl: this.homeUrl, label: this.label, query: this.query, updated: updated, maxResults: this.maxResults, startIndex: startIndex });
           }
         }
-        a.style.display = "inline-block";
-        a.style.verticalAlign = "middle";
-        a.style.margin = "0 6px";
         return a;
       };
 
@@ -233,9 +215,6 @@
         const s = document.createElement("span");
         s.className = this.config.dotsClass;
         s.textContent = "…";
-        s.style.display = "inline-block";
-        s.style.verticalAlign = "middle";
-        s.style.margin = "0 6px";
         s.style.pointerEvents = "none";
         return s;
       };
