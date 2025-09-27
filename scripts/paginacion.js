@@ -104,45 +104,44 @@
       this._render(pagesToShow, postDates, totalPages, currentPage);
     }
 
-  _ensureNodes(){
-  if (!this.pagerNode || this.isHome) return false;
+    _ensureNodes(){
+  if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
+  if(!this.pagerNode) return false;
 
-  // Crear contenedor de números si no existe
-  if (!this.numbersNode) {
-    const wrapper = document.createElement("div");
-    wrapper.id = this.config.numberSelector.replace(/^#/, "");
-    wrapper.style.display = "flex";
-    wrapper.style.justifyContent = "center";
-    wrapper.style.flexWrap = "wrap";
-    wrapper.style.gap = "6px";
-    wrapper.style.margin = "6px 0";
-    this.numbersNode = wrapper;
+  // ocultar en Home
+  if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
+
+  // crear contenedor flex para centrar botones y números
+  const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
+  const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
+
+  const flexContainer = document.createElement("div");
+  flexContainer.style.display = "flex";
+  flexContainer.style.justifyContent = "center";
+  flexContainer.style.alignItems = "center";
+  flexContainer.style.gap = "12px";
+  
+  // mover botones al contenedor
+  if(newerBtn) flexContainer.appendChild(newerBtn);
+  
+  // crear nodo de números si no existe
+  if(!this.numbersNode){
+    const div = document.createElement("div");
+    div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+    div.style.display = "inline-flex";
+    div.style.alignItems = "center";
+    div.style.gap = "6px";
+    this.numbersNode = div;
   }
+  flexContainer.appendChild(this.numbersNode);
+  
+  if(olderBtn) flexContainer.appendChild(olderBtn);
 
-  // Reorganizar el bloque #blog-pager en columna
-  this.pagerNode.style.display = "flex";
-  this.pagerNode.style.flexDirection = "column";
-  this.pagerNode.style.alignItems = "center";
-  this.pagerNode.style.gap = "10px";
+  // limpiar y agregar el contenedor
+  this.pagerNode.innerHTML = "";
+  this.pagerNode.appendChild(flexContainer);
 
-  // Detectar botones existentes
-  const newer = this.pagerNode.querySelector(".blog-pager-newer-link");
-  const older = this.pagerNode.querySelector(".blog-pager-older-link");
-
-  // Crear fragmento con orden: [newer] → [números] → [older]
-  const fragment = document.createDocumentFragment();
-  if (newer) fragment.appendChild(newer);
-  fragment.appendChild(this.numbersNode);
-  if (older) fragment.appendChild(older);
-
-  // Vaciar solo si no está inicializado
-  if (!this.pagerNode.classList.contains("blogger-pager-initialized")) {
-    this.pagerNode.innerHTML = "";
-    this.pagerNode.classList.add("blogger-pager-initialized");
-  }
-
-  this.pagerNode.appendChild(fragment);
-  return true;
+  return !!this.numbersNode;
 }
 
     async _fetchSummary(){
