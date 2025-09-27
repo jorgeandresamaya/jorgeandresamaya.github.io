@@ -101,6 +101,10 @@
     _ensureNodes(){
   if (!this.pagerNode || this.isHome) return false;
 
+  // Detectar botones existentes
+  const newer = this.pagerNode.querySelector(".blog-pager-newer-link");
+  const older = this.pagerNode.querySelector(".blog-pager-older-link");
+
   // Crear contenedor de números si no existe
   if (!this.numbersNode) {
     const wrapper = document.createElement("div");
@@ -111,31 +115,25 @@
     wrapper.style.gap = "6px";
     wrapper.style.margin = "6px 0";
     this.numbersNode = wrapper;
+
+    // Insertar entre los botones sin borrar el DOM
+    if (newer && older) {
+      older.insertAdjacentElement("beforebegin", this.numbersNode);
+    } else if (older) {
+      this.pagerNode.insertBefore(this.numbersNode, older);
+    } else if (newer) {
+      newer.insertAdjacentElement("afterend", this.numbersNode);
+    } else {
+      this.pagerNode.appendChild(this.numbersNode);
+    }
   }
 
-  // Crear contenedor vertical para reorganizar
-  const verticalWrapper = document.createElement("div");
-  verticalWrapper.style.display = "flex";
-  verticalWrapper.style.flexDirection = "column";
-  verticalWrapper.style.alignItems = "center";
-  verticalWrapper.style.gap = "10px";
+  // Asegurar estilo vertical del bloque
+  this.pagerNode.style.display = "flex";
+  this.pagerNode.style.flexDirection = "column";
+  this.pagerNode.style.alignItems = "center";
+  this.pagerNode.style.gap = "10px";
 
-  // Detectar botones
-  const newer = this.pagerNode.querySelector(".blog-pager-newer-link");
-  const older = this.pagerNode.querySelector(".blog-pager-older-link");
-
-  // Mover botones y números al nuevo contenedor
-  if (newer) verticalWrapper.appendChild(newer);
-  verticalWrapper.appendChild(this.numbersNode);
-  if (older) verticalWrapper.appendChild(older);
-
-  // Vaciar solo si no está inicializado
-  if (!this.pagerNode.classList.contains("blogger-pager-initialized")) {
-    this.pagerNode.innerHTML = "";
-    this.pagerNode.classList.add("blogger-pager-initialized");
-  }
-
-  this.pagerNode.appendChild(verticalWrapper);
   return true;
 }
 
