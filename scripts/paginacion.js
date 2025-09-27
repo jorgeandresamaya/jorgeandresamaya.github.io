@@ -69,34 +69,40 @@
     }
 
     async init(){
-      if(!this._ensureNodes()) return;
-      if(!this.maxResults) this.maxResults = 10;
+  if (this.isHome || !this.pagerNode) return;
 
-      const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
+  // Asegurar que no se ejecuta nada en Home
+  if (this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return;
 
-      let summary = null;
-      try { summary = await this._fetchSummary(); } catch(e){ }
+  if (!this._ensureNodes()) return;
+  if (!this.maxResults) this.maxResults = 10;
 
-      let postDates = (cached && cached.postDates && cached.postDates.length) ? cached.postDates : [];
-      if(!postDates.length || (summary && summary.updated && summary.updated !== cached.updated)){
-        try {
-          const fetched = await this._fetchAllPostDates(summary ? summary.totalPosts : (cached.totalPosts || 0));
-          if(fetched && fetched.postDates && fetched.postDates.length){
-            postDates = fetched.postDates;
-            writeCache(this._cacheKey, { totalPosts: fetched.totalPosts, postDates: fetched.postDates, updated: (summary ? summary.updated : (cached.updated || null)) });
-          }
-        } catch(e){}
+  const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
+  let summary = null;
+  try { summary = await this._fetchSummary(); } catch(e){}
+
+  let postDates = (cached.postDates && cached.postDates.length) ? cached.postDates : [];
+  if (!postDates.length || (summary && summary.updated && summary.updated !== cached.updated)) {
+    try {
+      const fetched = await this._fetchAllPostDates(summary ? summary.totalPosts : (cached.totalPosts || 0));
+      if (fetched && fetched.postDates && fetched.postDates.length) {
+        postDates = fetched.postDates;
+        writeCache(this._cacheKey, {
+          totalPosts: fetched.totalPosts,
+          postDates: fetched.postDates,
+          updated: summary ? summary.updated : (cached.updated || null)
+        });
       }
+    } catch(e){}
+  }
 
-      const totalPosts = (readCache(this._cacheKey) && readCache(this._cacheKey).totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
-      const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
+  const totalPosts = (readCache(this._cacheKey)?.totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
+  const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
+  const currentPage = this._computeCurrentPage(postDates, totalPages);
+  const pagesToShow = this._computePagesToShow(totalPages, currentPage);
+  this._render(pagesToShow, postDates, totalPages, currentPage);
+}
 
-      const currentPage = this._computeCurrentPage(postDates, totalPages);
-
-      const pagesToShow = this._computePagesToShow(totalPages, currentPage);
-
-      this._render(pagesToShow, postDates, totalPages, currentPage);
-    }
 
     _ensureNodes(){
   if (!this.pagerNode || this.isHome) return false;
