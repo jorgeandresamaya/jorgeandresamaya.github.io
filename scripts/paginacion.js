@@ -130,7 +130,10 @@
           this.numbersNode = div;
         }
       }
-      this.pagerNode.style.textAlign = "center";
+      this.pagerNode.style.display = "flex";
+this.pagerNode.style.justifyContent = "center";
+this.pagerNode.style.alignItems = "center";
+this.pagerNode.style.gap = "12px"; // separación entre botones y números
       return !!this.numbersNode;
     }
 
