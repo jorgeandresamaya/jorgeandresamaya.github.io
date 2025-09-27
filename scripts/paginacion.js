@@ -106,36 +106,44 @@
     }
 
     _ensureNodes(){
-      if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
-      if(!this.pagerNode) return false;
-      if(!this.numbersNode){
-        const existing = this.pagerNode.querySelector(this.config.numberSelector);
-        if(existing) this.numbersNode = existing;
-        else {
-          const div = document.createElement("div");
-          div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-          div.style.display = "inline-block";
-          div.style.verticalAlign = "middle";
-          div.style.margin = "0 6px";
-          // insert before older-link to center between newer/older
-          const older = this.pagerNode.querySelector(".blog-pager-older-link");
-          const newer = this.pagerNode.querySelector(".blog-pager-newer-link");
-          if(newer && older){
-            this.pagerNode.insertBefore(div, older);
-          } else if(older){
-            this.pagerNode.insertBefore(div, older);
-          } else {
-            this.pagerNode.appendChild(div);
-          }
-          this.numbersNode = div;
-        }
-      }
-      this.pagerNode.style.display = "flex";
-this.pagerNode.style.justifyContent = "center";
-this.pagerNode.style.alignItems = "center";
-this.pagerNode.style.gap = "12px"; // separación entre botones y números
-      return !!this.numbersNode;
-    }
+  if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
+  if(!this.pagerNode) return false;
+
+  // ocultar en Home
+  if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
+
+  // crear contenedor flex para centrar botones y números
+  const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
+  const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
+
+  const flexContainer = document.createElement("div");
+  flexContainer.style.display = "flex";
+  flexContainer.style.justifyContent = "center";
+  flexContainer.style.alignItems = "center";
+  flexContainer.style.gap = "12px";
+  
+  // mover botones al contenedor
+  if(newerBtn) flexContainer.appendChild(newerBtn);
+  
+  // crear nodo de números si no existe
+  if(!this.numbersNode){
+    const div = document.createElement("div");
+    div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+    div.style.display = "inline-flex";
+    div.style.alignItems = "center";
+    div.style.gap = "6px";
+    this.numbersNode = div;
+  }
+  flexContainer.appendChild(this.numbersNode);
+  
+  if(olderBtn) flexContainer.appendChild(olderBtn);
+
+  // limpiar y agregar el contenedor
+  this.pagerNode.innerHTML = "";
+  this.pagerNode.appendChild(flexContainer);
+
+  return !!this.numbersNode;
+}
 
     async _fetchSummary(){
       const feedUrl = `${this.homeUrl}/feeds/posts/summary/${this.label ? `-/${this.label}?` : "?"}alt=json&max-results=0`;
