@@ -105,41 +105,48 @@
     }
 
     _ensureNodes(){
-      if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
-      if(!this.pagerNode) return false;
+  if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
+  if(!this.pagerNode) return false;
 
-      // ocultar en Home
-      if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
+  // ocultar en Home
+  if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
 
-      const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
-      const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
+  // obtener botones existentes
+  const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
+  const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
 
-      // crear nodo de números si no existe
-      if(!this.numbersNode){
-        const div = document.createElement("div");
-        div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
-        div.style.display = "inline-flex";
-        div.style.alignItems = "center";
-        div.style.gap = "6px";
-        this.numbersNode = div;
-      }
+  // crear nodo de números si no existe
+  if(!this.numbersNode){
+    const div = document.createElement("div");
+    div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+    this.numbersNode = div;
+  }
 
-      // crear contenedor flex
-      const flexContainer = document.createElement("div");
-      flexContainer.style.display = "flex";
-      flexContainer.style.justifyContent = "center";
-      flexContainer.style.alignItems = "center";
-      flexContainer.style.gap = "12px";
+  // limpiar el pager para crear contenedor
+  this.pagerNode.innerHTML = "";
 
-      if(newerBtn) flexContainer.appendChild(newerBtn);
-      flexContainer.appendChild(this.numbersNode);
-      if(olderBtn) flexContainer.appendChild(olderBtn);
+  // crear contenedor flex
+  const flexContainer = document.createElement("div");
+  flexContainer.style.display = "flex";
+  flexContainer.style.flexWrap = "nowrap";       // evita que se rompan en varias líneas
+  flexContainer.style.justifyContent = "center"; // centra horizontalmente
+  flexContainer.style.alignItems = "center";     // alinea verticalmente
+  flexContainer.style.gap = "12px";              // espacio entre elementos
 
-      this.pagerNode.innerHTML = "";
-      this.pagerNode.appendChild(flexContainer);
+  // agregar botones y números al contenedor
+  if(newerBtn) flexContainer.appendChild(newerBtn);
+  this.numbersNode.style.display = "inline-flex";
+  this.numbersNode.style.flexWrap = "nowrap";      // mantiene números en línea
+  this.numbersNode.style.alignItems = "center";
+  this.numbersNode.style.justifyContent = "center";
+  this.numbersNode.style.gap = "6px";
+  flexContainer.appendChild(this.numbersNode);
+  if(olderBtn) flexContainer.appendChild(olderBtn);
 
-      return !!this.numbersNode;
-    }
+  this.pagerNode.appendChild(flexContainer);
+
+  return !!this.numbersNode;
+}
 
     async _fetchSummary(){
       const feedUrl = `${this.homeUrl}/feeds/posts/summary/${this.label ? `-/${this.label}?` : "?"}alt=json&max-results=0`;
