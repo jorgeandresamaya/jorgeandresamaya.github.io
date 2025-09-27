@@ -14,7 +14,7 @@
 
   const DEFAULTS = {
     pagerSelector: "#blog-pager",
-    numberSelector: "numeracion-paginacion",
+    numberSelector: "#numeracion-paginacion",
     numberClass: "pager-item",
     activeClass: "is-active",
     dotsClass: "pager-dots",
@@ -61,7 +61,7 @@
       }
       this.query = this.curUrl.searchParams.get("q") || null;
       this.pagerNode = qs(this.config.pagerSelector);
-      this.numbersNode = qs("#" + this.config.numberSelector);
+      this.numbersNode = qs(this.config.numberSelector);
       this.maxResults = parseMaxResultsFromPager(this.pagerNode) || null;
       this.currentUpdated = this.curUrl.searchParams.get("updated-max") || null;
       this.currentStart = this.curUrl.searchParams.get("start") ? Number(this.curUrl.searchParams.get("start")) : (this.curUrl.searchParams.get("start-index") ? Number(this.curUrl.searchParams.get("start-index")) : null);
@@ -69,79 +69,77 @@
     }
 
     async init(){
-  if (this.isHome || !this.pagerNode) return;
+      if(!this._ensureNodes()) return;
+      if(!this.maxResults) this.maxResults = 10;
 
-  // Asegurar que no se ejecuta nada en Home
-  if (this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return;
-
-  if (!this._ensureNodes()) return;
-  if (!this.maxResults) this.maxResults = 10;
-
-  const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
-  let summary = null;
-  try { summary = await this._fetchSummary(); } catch(e){}
-
-  let postDates = (cached.postDates && cached.postDates.length) ? cached.postDates : [];
-  if (!postDates.length || (summary && summary.updated && summary.updated !== cached.updated)) {
-    try {
-      const fetched = await this._fetchAllPostDates(summary ? summary.totalPosts : (cached.totalPosts || 0));
-      if (fetched && fetched.postDates && fetched.postDates.length) {
-        postDates = fetched.postDates;
-        writeCache(this._cacheKey, {
-          totalPosts: fetched.totalPosts,
-          postDates: fetched.postDates,
-          updated: summary ? summary.updated : (cached.updated || null)
-        });
+      // ocultar en Home
+      if(window.location.pathname === "/" || window.location.pathname === "/index.html") {
+        this.numbersNode.style.display = "none";
+        return;
       }
-    } catch(e){}
-  }
 
-  const totalPosts = (readCache(this._cacheKey)?.totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
-  const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
-  const currentPage = this._computeCurrentPage(postDates, totalPages);
-  const pagesToShow = this._computePagesToShow(totalPages, currentPage);
-  this._render(pagesToShow, postDates, totalPages, currentPage);
-}
+      const cached = readCache(this._cacheKey) || { totalPosts:0, postDates:[], updated:null };
 
+      let summary = null;
+      try { summary = await this._fetchSummary(); } catch(e){ }
+
+      let postDates = (cached && cached.postDates && cached.postDates.length) ? cached.postDates : [];
+      if(!postDates.length || (summary && summary.updated && summary.updated !== cached.updated)){
+        try {
+          const fetched = await this._fetchAllPostDates(summary ? summary.totalPosts : (cached.totalPosts || 0));
+          if(fetched && fetched.postDates && fetched.postDates.length){
+            postDates = fetched.postDates;
+            writeCache(this._cacheKey, { totalPosts: fetched.totalPosts, postDates: fetched.postDates, updated: (summary ? summary.updated : (cached.updated || null)) });
+          }
+        } catch(e){}
+      }
+
+      const totalPosts = (readCache(this._cacheKey) && readCache(this._cacheKey).totalPosts) || (summary ? summary.totalPosts : (cached.totalPosts || 0)) || 0;
+      const totalPages = Math.max(1, Math.ceil(totalPosts / this.maxResults));
+
+      const currentPage = this._computeCurrentPage(postDates, totalPages);
+
+      const pagesToShow = this._computePagesToShow(totalPages, currentPage);
+
+      this._render(pagesToShow, postDates, totalPages, currentPage);
+    }
 
     _ensureNodes(){
-  if (!this.pagerNode || this.isHome) return false;
+      if(!this.pagerNode) this.pagerNode = qs(this.config.pagerSelector);
+      if(!this.pagerNode) return false;
 
-  // Detectar botones existentes
-  const newer = this.pagerNode.querySelector(".blog-pager-newer-link");
-  const older = this.pagerNode.querySelector(".blog-pager-older-link");
+      // ocultar en Home
+      if(this.curUrl.pathname === "/" || this.curUrl.pathname === "/index.html") return false;
 
-  // Si ya existe el contenedor de números, no lo recreamos
-  if (!this.numbersNode) {
-    const wrapper = document.createElement("div");
-    wrapper.id = this.config.numberSelector.replace(/^#/, "");
-    wrapper.style.display = "flex";
-    wrapper.style.justifyContent = "center";
-    wrapper.style.flexWrap = "wrap";
-    wrapper.style.gap = "6px";
-    wrapper.style.margin = "6px 0";
-    this.numbersNode = wrapper;
+      const olderBtn = this.pagerNode.querySelector(".blog-pager-older-link");
+      const newerBtn = this.pagerNode.querySelector(".blog-pager-newer-link");
 
-    // Insertar entre los botones sin borrar el DOM
-    if (newer && older) {
-      older.insertAdjacentElement("beforebegin", this.numbersNode);
-    } else if (older) {
-      this.pagerNode.insertBefore(this.numbersNode, older);
-    } else if (newer) {
-      newer.insertAdjacentElement("afterend", this.numbersNode);
-    } else {
-      this.pagerNode.appendChild(this.numbersNode);
+      // crear nodo de números si no existe
+      if(!this.numbersNode){
+        const div = document.createElement("div");
+        div.id = (this.config.numberSelector||"#numeracion-paginacion").replace(/^#/,"");
+        div.style.display = "inline-flex";
+        div.style.alignItems = "center";
+        div.style.gap = "6px";
+        this.numbersNode = div;
+      }
+
+      // crear contenedor flex
+      const flexContainer = document.createElement("div");
+      flexContainer.style.display = "flex";
+      flexContainer.style.justifyContent = "center";
+      flexContainer.style.alignItems = "center";
+      flexContainer.style.gap = "12px";
+
+      if(newerBtn) flexContainer.appendChild(newerBtn);
+      flexContainer.appendChild(this.numbersNode);
+      if(olderBtn) flexContainer.appendChild(olderBtn);
+
+      this.pagerNode.innerHTML = "";
+      this.pagerNode.appendChild(flexContainer);
+
+      return !!this.numbersNode;
     }
-  }
-
-  // Asegurar estilo vertical del bloque
-  this.pagerNode.style.display = "flex";
-  this.pagerNode.style.flexDirection = "column";
-  this.pagerNode.style.alignItems = "center";
-  this.pagerNode.style.gap = "10px";
-
-  return true;
-}
 
     async _fetchSummary(){
       const feedUrl = `${this.homeUrl}/feeds/posts/summary/${this.label ? `-/${this.label}?` : "?"}alt=json&max-results=0`;
@@ -199,6 +197,10 @@
     _render(pagesArr, postDates, totalPages, currentPage){
       if(!this.numbersNode) return;
       this.numbersNode.innerHTML = "";
+      this.numbersNode.style.display = "inline-flex";
+      this.numbersNode.style.alignItems = "center";
+      this.numbersNode.style.justifyContent = "center";
+      this.numbersNode.style.gap = "6px";
 
       const frag = document.createDocumentFragment();
 
@@ -219,7 +221,6 @@
           }
         }
         a.style.display = "inline-block";
-        a.style.verticalAlign = "middle";
         a.style.margin = "0 6px";
         return a;
       };
@@ -229,7 +230,6 @@
         s.className = this.config.dotsClass;
         s.textContent = "…";
         s.style.display = "inline-block";
-        s.style.verticalAlign = "middle";
         s.style.margin = "0 6px";
         s.style.pointerEvents = "none";
         return s;
